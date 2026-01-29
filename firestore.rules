@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Events collection - public read, role-based write
+    match /events/{eventId} {
+      allow read: if true;
+
+      function isSuperAdmin() {
+        return request.auth != null && request.auth.token.role == 'superAdmin';
+      }
+      function isAdmin() {
+        return request.auth != null && (request.auth.token.role == 'admin' || request.auth.token.role == 'superAdmin');
+      }
+      function isOwner() {
+        return request.auth != null && resource.data.createdBy == request.auth.uid;
+      }
+
+      allow create: if isAdmin() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isSuperAdmin() || (request.auth.token.role == 'admin' && isOwner());
+      allow delete: if isSuperAdmin() || (request.auth.token.role == 'admin' && isOwner());
+
+      // Registrations subcollection - no client writes; read for admins only
+      match /registrations/{registrationId} {
+        allow read: if request.auth != null;
+        allow create, update, delete: if false;
+      }
+    }
+
+    // Admins collection - users can only read/write their own doc (creation is server-side)
+    match /admins/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Bookings (legacy) - keep for backward compatibility
+    match /bookings/{bookingId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if request.auth != null;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

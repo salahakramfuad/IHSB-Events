@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-border: #e2e8f0;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-muted: #eef2ff;
+  --success: #059669;
+  --success-muted: #d1fae5;
+  --destructive: #dc2626;
+  --destructive-muted: #fee2e2;
+  --radius: 0.75rem;
+  --radius-lg: 1rem;
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.08);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-feature-settings: "rlig" 1, "calt" 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Focus ring for accessibility */
+input:focus-visible,
+button:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Smooth transitions for interactive elements */
+button, a, [role="button"] {
+  transition: color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
