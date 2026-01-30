@@ -2,8 +2,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { getAdminEvent, getEventRegistrations, getCurrentAdminProfileInServer } from '@/app/admin/actions'
 import ExportRegistrationsButton from './registrations/ExportRegistrationsButton'
+import RegistrationsTableWithSearch from './registrations/RegistrationsTableWithSearch'
 import { notFound } from 'next/navigation'
-import { format } from 'date-fns'
 import {
   ArrowLeft,
   Calendar,
@@ -145,59 +145,13 @@ export default async function AdminEventDetailPage({
         </div>
       </section>
 
-      {/* Registration list */}
-      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-        <div className="border-b border-slate-200 bg-slate-50/80 px-5 py-3">
-          <h3 className="text-sm font-semibold text-slate-700">Registration list</h3>
-        </div>
-        <table className="min-w-full">
-          <thead>
-            <tr className="border-b border-slate-200 bg-slate-50/80">
-              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Name
-              </th>
-              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Email
-              </th>
-              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Phone
-              </th>
-              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                School
-              </th>
-              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Note
-              </th>
-              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Registered
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {registrations.map((reg) => (
-              <tr key={reg.id} className="transition hover:bg-slate-50/50">
-                <td className="px-5 py-4 text-sm font-medium text-slate-900">{reg.name}</td>
-                <td className="px-5 py-4 text-sm text-slate-600">{reg.email}</td>
-                <td className="px-5 py-4 text-sm text-slate-600">{reg.phone}</td>
-                <td className="px-5 py-4 text-sm text-slate-600">{reg.school}</td>
-                <td className="max-w-xs truncate px-5 py-4 text-sm text-slate-600">
-                  {reg.note ?? '—'}
-                </td>
-                <td className="px-5 py-4 text-sm text-slate-500">
-                  {typeof reg.createdAt === 'string'
-                    ? format(new Date(reg.createdAt), 'PPp')
-                    : '—'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {registrations.length === 0 && (
-          <div className="py-16 text-center">
-            <Users className="mx-auto h-12 w-12 text-slate-300" aria-hidden />
-            <p className="mt-4 text-slate-500">No registrations yet.</p>
-          </div>
-        )}
+      {/* Registration list with search and position assignment */}
+      <section>
+        <RegistrationsTableWithSearch
+          eventId={id}
+          registrations={registrations}
+          canEdit={canEdit}
+        />
       </section>
     </div>
   )

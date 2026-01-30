@@ -57,3 +57,36 @@ export const getPublicEvent = cache(async (id: string): Promise<Event | null> =>
     return null
   }
 })
+
+/** Featured applicant for public display (position 1–20 only) */
+export type FeaturedApplicant = { position: number; name: string; school?: string }
+
+export const getPublicEventFeaturedRegistrations = cache(
+  async (eventId: string): Promise<FeaturedApplicant[]> => {
+    if (!adminDb) return []
+    try {
+      const snapshot = await adminDb
+        .collection('events')
+        .doc(eventId)
+        .collection('registrations')
+        .get()
+      const list: FeaturedApplicant[] = []
+      snapshot.forEach((doc) => {
+        const data = doc.data()
+        const pos = data.position
+        if (typeof pos === 'number' && pos >= 1 && pos <= 20) {
+          list.push({
+            position: pos,
+            name: data.name ?? '',
+            school: data.school ?? undefined,
+          })
+        }
+      })
+      list.sort((a, b) => a.position - b.position)
+      return list
+    } catch (error) {
+      console.error('Error fetching featured registrations:', error)
+      return []
+    }
+  }
+)

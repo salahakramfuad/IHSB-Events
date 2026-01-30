@@ -6,5 +6,14 @@ export type Registration = {
   phone: string
   school: string
   note?: string
+  /** 1–20 = featured position; null = no position */
+  position: number | null
   createdAt: Date | string
+}
+
+/** Public-facing featured applicant (position 1–20) */
+export type FeaturedApplicant = {
+  position: number
+  name: string
+  school?: string
 }

@@ -208,6 +208,7 @@ export async function getEventRegistrations(eventId: string): Promise<Registrati
     snapshot.forEach((doc) => {
       const data = doc.data()
       const createdAt = data.createdAt?.toDate?.() ?? data.createdAt
+      const pos = data.position
       list.push({
         id: doc.id,
         registrationId: data.registrationId ?? doc.id,
@@ -216,6 +217,7 @@ export async function getEventRegistrations(eventId: string): Promise<Registrati
         phone: data.phone ?? '',
         school: data.school ?? '',
         note: data.note ?? '',
+        position: typeof pos === 'number' && pos >= 1 && pos <= 20 ? pos : null,
         createdAt: createdAt instanceof Date ? createdAt.toISOString() : (createdAt as string) ?? '',
       })
     })
@@ -228,5 +230,38 @@ export async function getEventRegistrations(eventId: string): Promise<Registrati
   } catch (error) {
     console.error('Error fetching registrations:', error)
     return []
+  }
+}
+
+/** Update a registration's position (1–20 or null). Only admins who can edit the event may update. */
+export async function updateRegistrationPosition(
+  eventId: string,
+  registrationDocId: string,
+  position: number | null
+): Promise<{ success: boolean; error?: string }> {
+  if (!adminDb) return { success: false, error: 'Database not available' }
+  const allowed = await canEditOrDeleteEvent(eventId)
+  if (!allowed) {
+    return { success: false, error: 'You can only update registrations for events you can edit.' }
+  }
+  if (position !== null && (position < 1 || position > 20)) {
+    return { success: false, error: 'Position must be between 1 and 20, or empty.' }
+  }
+  try {
+    const ref = adminDb
+      .collection('events')
+      .doc(eventId)
+      .collection('registrations')
+      .doc(registrationDocId)
+    const doc = await ref.get()
+    if (!doc.exists) return { success: false, error: 'Registration not found' }
+    await ref.update({ position: position ?? null })
+    revalidatePath(`/admin/events/${eventId}`)
+    revalidatePath(`/admin/events/${eventId}/registrations`)
+    revalidatePath(`/${eventId}`)
+    return { success: true }
+  } catch (error) {
+    console.error('Error updating registration position:', error)
+    return { success: false, error: String(error) }
   }
 }

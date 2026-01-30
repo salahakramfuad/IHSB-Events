@@ -72,15 +72,15 @@ export default function RegistrationForm({ eventId }: RegistrationFormProps) {
   }
 
   const inputClass =
-    'w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition'
+    'w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-[hsl(var(--event-accent))] focus:ring-2 focus:ring-[hsl(var(--event-accent)/0.2)] transition'
 
   return (
-    <div className="sticky top-24 rounded-2xl border-2 border-indigo-200 bg-gradient-to-b from-white to-indigo-50/30 p-6 shadow-lg shadow-indigo-100/50">
-      <div className="mb-6 flex items-center gap-2">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-200 text-indigo-800 shadow-sm">
+    <div className="sticky top-24 rounded-2xl bg-white/95 p-6 shadow-sm backdrop-blur">
+      <div className="mb-6 flex items-center gap-3">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[hsl(var(--event-accent)/0.2)] text-[hsl(var(--event-accent))]">
           <UserPlus className="h-5 w-5" aria-hidden />
         </span>
-        <h3 className="text-lg font-semibold text-indigo-900">Register for this event</h3>
+        <h3 className="text-lg font-semibold text-slate-900">Register for this event</h3>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -175,7 +175,7 @@ export default function RegistrationForm({ eventId }: RegistrationFormProps) {
         <button
           type="submit"
           disabled={status === 'loading'}
-          className="w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-500 hover:shadow-lg hover:shadow-indigo-200 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full rounded-full bg-[hsl(var(--event-accent))] px-4 py-3 font-semibold text-white transition hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {status === 'loading' ? 'Registering…' : 'Register'}
         </button>
