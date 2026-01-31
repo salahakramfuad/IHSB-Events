@@ -82,25 +82,46 @@ export default async function EventDetailPage({
               <section className="rounded-2xl bg-white/95 p-6 shadow-sm backdrop-blur">
                 <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-900">
                   <Award className="h-5 w-5 text-[hsl(var(--event-accent))]" aria-hidden />
-                  Featured applicants
+                  Awardees
                 </h2>
                 <ul className="space-y-2">
-                  {featured.map((a) => (
-                    <li
-                      key={`${a.position}-${a.name}`}
-                      className="flex items-center gap-3 rounded-xl bg-slate-50/80 px-4 py-3"
-                    >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--event-accent)/0.2)] text-sm font-bold text-[hsl(var(--event-accent))]">
-                        {a.position === 1 ? '1st' : a.position === 2 ? '2nd' : a.position === 3 ? '3rd' : `${a.position}th`}
-                      </span>
-                      <div>
-                        <span className="font-medium text-slate-900">{a.name}</span>
-                        {a.school && (
-                          <span className="ml-2 text-sm text-slate-600">— {a.school}</span>
-                        )}
-                      </div>
-                    </li>
-                  ))}
+                  {featured.map((a) => {
+                    const isGold = a.position === 1
+                    const isSilver = a.position === 2
+                    const isBronze = a.position === 3
+                    const rowBg = isGold
+                      ? 'bg-amber-50 border-amber-200/80'
+                      : isSilver
+                        ? 'bg-slate-100 border-slate-300/80'
+                        : isBronze
+                          ? 'bg-amber-100/90 border-amber-300/80'
+                          : 'border-slate-200/60'
+                    const badgeBg = isGold
+                      ? 'bg-amber-200 text-amber-900'
+                      : isSilver
+                        ? 'bg-slate-300 text-slate-800'
+                        : isBronze
+                          ? 'bg-amber-400/90 text-amber-950'
+                          : 'bg-slate-100 text-slate-600'
+                    return (
+                      <li
+                        key={`${a.position}-${a.name}`}
+                        className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${rowBg}`}
+                      >
+                        <span
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${badgeBg}`}
+                        >
+                          {a.position === 1 ? '1st' : a.position === 2 ? '2nd' : a.position === 3 ? '3rd' : `${a.position}th`}
+                        </span>
+                        <div>
+                          <span className="font-medium text-slate-900">{a.name}</span>
+                          {a.school && (
+                            <span className="ml-2 text-sm text-slate-600">— {a.school}</span>
+                          )}
+                        </div>
+                      </li>
+                    )
+                  })}
                 </ul>
               </section>
             )}
