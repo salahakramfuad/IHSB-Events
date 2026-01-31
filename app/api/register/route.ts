@@ -11,7 +11,7 @@ function normalizeEmail(email: string): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { eventId, name, email, phone, school, note } = body
+    const { eventId, name, email, phone, school, note, category } = body
 
     if (!eventId || !name?.trim() || !email?.trim() || !phone?.trim() || !school?.trim()) {
       return NextResponse.json(
@@ -37,6 +37,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
+    const eventDataRaw = eventSnap.data()!
+    const eventCategories = Array.isArray(eventDataRaw.categories)
+      ? eventDataRaw.categories.filter((c: unknown) => typeof c === 'string' && c.trim())
+      : []
+    if (eventCategories.length > 0) {
+      const chosen = category != null ? String(category).trim() : ''
+      if (!chosen || !eventCategories.includes(chosen)) {
+        return NextResponse.json(
+          { error: 'Please select a valid category.' },
+          { status: 400 }
+        )
+      }
+    }
+
     const regsRef = eventRef.collection('registrations')
     const duplicateSnap = await regsRef.where('email', '==', normalizedEmail).limit(1).get()
     if (!duplicateSnap.empty) {
@@ -48,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     const registrationId = generateRegistrationId()
     const now = new Date()
-    const regData = {
+    const regData: Record<string, unknown> = {
       registrationId,
       name: name.trim(),
       email: normalizedEmail,
@@ -56,6 +70,9 @@ export async function POST(request: NextRequest) {
       school: school.trim(),
       note: note != null ? String(note).trim() : '',
       createdAt: now,
+    }
+    if (eventCategories.length > 0 && category != null && String(category).trim()) {
+      regData.category = String(category).trim()
     }
 
     const newRegRef = regsRef.doc(registrationId)

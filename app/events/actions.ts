@@ -15,12 +15,23 @@ function toEvent(doc: DocumentSnapshot): Event {
   }
   const createdAt = data.createdAt?.toDate?.() ?? data.createdAt
   const updatedAt = data.updatedAt?.toDate?.() ?? data.updatedAt
+  let resultsPublishedAtRaw = data.resultsPublishedAt?.toDate?.() ?? data.resultsPublishedAt
+  if (resultsPublishedAtRaw && typeof resultsPublishedAtRaw === 'object' && '_seconds' in resultsPublishedAtRaw) {
+    resultsPublishedAtRaw = new Date((resultsPublishedAtRaw as { _seconds: number })._seconds * 1000)
+  }
+  const resultsPublishedAt =
+    resultsPublishedAtRaw instanceof Date
+      ? resultsPublishedAtRaw.toISOString()
+      : typeof resultsPublishedAtRaw === 'string'
+        ? resultsPublishedAtRaw
+        : null
   return {
     id: doc.id,
     ...data,
     date: dateValue,
     createdAt: createdAt instanceof Date ? createdAt.toISOString() : (createdAt as string) ?? '',
     updatedAt: updatedAt instanceof Date ? updatedAt.toISOString() : (updatedAt as string) ?? '',
+    resultsPublishedAt,
     createdBy: data.createdBy ?? '',
     title: data.title ?? '',
     location: data.location ?? '',

@@ -4,6 +4,7 @@ import { Calendar, Clock, MapPin, ArrowLeft, Award } from 'lucide-react'
 import { getPublicEvent, getPublicEventFeaturedRegistrations } from '@/app/events/actions'
 import { notFound } from 'next/navigation'
 import RegistrationForm from './RegistrationForm'
+import EventLogo from '@/components/EventLogo'
 import { parseEventDates, formatEventDates, hasEventPassed } from '@/lib/dateUtils'
 import PublicHeader from '@/components/PublicHeader'
 import EventDetailTheme from '@/components/EventDetailTheme'
@@ -63,10 +64,15 @@ export default async function EventDetailPage({
         <div className="grid gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-6">
             <div className="rounded-2xl bg-white/95 p-6 shadow-sm backdrop-blur sm:p-8">
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-                {event.title}
-              </h1>
-              <p className="mt-2 text-lg text-slate-600">{event.description}</p>
+              <div className="flex items-start gap-4">
+                <EventLogo title={event.title} logo={event.logo} size="lg" />
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+                    {event.title}
+                  </h1>
+                  <p className="mt-2 text-lg text-slate-600">{event.description}</p>
+                </div>
+              </div>
             </div>
 
             {(event.fullDescription || event.description) && (
@@ -167,7 +173,7 @@ export default async function EventDetailPage({
                 </Link>
               </div>
             ) : (
-              <RegistrationForm eventId={id} />
+              <RegistrationForm eventId={id} categories={event.categories} />
             )}
           </div>
         </div>

@@ -6,7 +6,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { createEvent, updateEvent } from '@/app/admin/actions'
 import type { Event } from '@/types/event'
-import { Upload, X } from 'lucide-react'
+import { Upload, X, Plus } from 'lucide-react'
+import DatePicker from './DatePicker'
+import TimePicker from './TimePicker'
 
 interface EventFormProps {
   event?: Event | null
@@ -15,6 +17,7 @@ interface EventFormProps {
 export default function EventForm({ event }: EventFormProps) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const logoInputRef = useRef<HTMLInputElement>(null)
   const isEdit = !!event?.id
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -28,7 +31,12 @@ export default function EventForm({ event }: EventFormProps) {
     location: event?.location ?? '',
     venue: event?.venue ?? '',
     image: event?.image ?? '',
+    logo: event?.logo ?? '',
   })
+  const [categories, setCategories] = useState<string[]>(
+    Array.isArray(event?.categories) ? [...event.categories] : []
+  )
+  const [categoryInput, setCategoryInput] = useState('')
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -65,6 +73,45 @@ export default function EventForm({ event }: EventFormProps) {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setError('')
+    setUploading(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch('/api/upload-image', { method: 'POST', body: form })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.url) {
+        setFormData((prev) => ({ ...prev, logo: data.url }))
+      } else {
+        setError(data.error ?? 'Logo upload failed')
+      }
+    } catch {
+      setError('Logo upload failed')
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  const clearLogo = () => {
+    setFormData((prev) => ({ ...prev, logo: '' }))
+    if (logoInputRef.current) logoInputRef.current.value = ''
+  }
+
+  const addCategory = () => {
+    const name = categoryInput.trim()
+    if (!name || categories.includes(name)) return
+    setCategories((prev) => [...prev, name].sort())
+    setCategoryInput('')
+  }
+
+  const removeCategory = (name: string) => {
+    setCategories((prev) => prev.filter((c) => c !== name))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -80,6 +127,8 @@ export default function EventForm({ event }: EventFormProps) {
           location: formData.location,
           venue: formData.venue || undefined,
           image: formData.image || undefined,
+          logo: formData.logo || undefined,
+          categories: categories.length > 0 ? categories : undefined,
         })
         if (result.success) {
           router.push('/admin/events')
@@ -97,6 +146,8 @@ export default function EventForm({ event }: EventFormProps) {
           location: formData.location,
           venue: formData.venue || undefined,
           image: formData.image || undefined,
+          logo: formData.logo || undefined,
+          categories: categories.length > 0 ? categories : undefined,
         })
         if (result.success && result.id) {
           router.push('/admin/events')
@@ -156,33 +207,32 @@ export default function EventForm({ event }: EventFormProps) {
           className={inputClass}
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label htmlFor="date" className="mb-1.5 block text-sm font-medium text-slate-700">
+          <label className="mb-1.5 block text-sm font-medium text-slate-700">
             Date <span className="text-red-500">*</span>
           </label>
-          <input
-            id="date"
-            name="date"
-            type="date"
-            required
+          <DatePicker
             value={formData.date}
-            onChange={handleChange}
-            className={inputClass}
+            onChange={(date) => {
+              setFormData((prev) => ({ ...prev, date }))
+              setError('')
+            }}
+            disabled={loading}
+            required
           />
         </div>
         <div>
-          <label htmlFor="time" className="mb-1.5 block text-sm font-medium text-slate-700">
+          <label className="mb-1.5 block text-sm font-medium text-slate-700">
             Time
           </label>
-          <input
-            id="time"
-            name="time"
-            type="text"
+          <TimePicker
             value={formData.time}
-            onChange={handleChange}
-            className={inputClass}
-            placeholder="e.g. 9:00 AM - 5:00 PM"
+            onChange={(time) => {
+              setFormData((prev) => ({ ...prev, time }))
+              setError('')
+            }}
+            disabled={loading}
           />
         </div>
       </div>
@@ -212,6 +262,52 @@ export default function EventForm({ event }: EventFormProps) {
           onChange={handleChange}
           className={inputClass}
         />
+      </div>
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-slate-700">
+          Categories
+        </label>
+        <p className="mb-2 text-xs text-slate-500">
+          If you add categories, registrants must choose one when registering (e.g. Photography, Essay, Debate).
+        </p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={categoryInput}
+            onChange={(e) => setCategoryInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCategory())}
+            placeholder="e.g. Photography"
+            className={inputClass}
+            aria-label="New category name"
+          />
+          <button
+            type="button"
+            onClick={addCategory}
+            className="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          >
+            <Plus className="h-5 w-5" aria-hidden />
+          </button>
+        </div>
+        {categories.length > 0 && (
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {categories.map((name) => (
+              <li
+                key={name}
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700"
+              >
+                {name}
+                <button
+                  type="button"
+                  onClick={() => removeCategory(name)}
+                  className="rounded-full p-0.5 text-slate-500 hover:bg-slate-200 hover:text-slate-800"
+                  aria-label={`Remove category ${name}`}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
       <div>
         <label className="mb-1.5 block text-sm font-medium text-slate-700">
@@ -268,6 +364,68 @@ export default function EventForm({ event }: EventFormProps) {
         <p className="mt-1.5 text-xs text-slate-500">
           Image is stored in Cloudinary. Optional for events.
         </p>
+      </div>
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-slate-700">
+          Event logo
+        </label>
+        <p className="mb-2 text-xs text-slate-500">
+          Square logo for the event. If not set, event initials (e.g. &quot;SC&quot; for Super Cup) are shown.
+        </p>
+        <input
+          ref={logoInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          onChange={handleLogoChange}
+          disabled={uploading}
+          className="sr-only"
+          id="event-logo-file"
+          aria-label="Upload event logo"
+        />
+        {formData.logo ? (
+          <div className="space-y-2">
+            <div className="relative inline-block rounded-xl border border-slate-200 overflow-hidden bg-slate-100">
+              <Image
+                src={formData.logo}
+                alt="Event logo"
+                width={80}
+                height={80}
+                className="h-20 w-20 object-cover"
+              />
+              <button
+                type="button"
+                onClick={clearLogo}
+                className="absolute right-1 top-1 rounded-full bg-slate-900/60 p-1 text-white hover:bg-slate-900"
+                aria-label="Remove logo"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+            <label
+              htmlFor="event-logo-file"
+              className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              <Upload className="h-4 w-4" />
+              {uploading ? 'Uploading…' : 'Replace logo'}
+            </label>
+          </div>
+        ) : (
+          <label
+            htmlFor="event-logo-file"
+            className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-slate-500 transition hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-600 disabled:opacity-50"
+          >
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-amber-100 font-bold text-amber-700">
+              {formData.title.trim()
+                ? formData.title.trim().split(/\s+/).filter(Boolean).length >= 2
+                  ? formData.title.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+                  : formData.title.trim().slice(0, 2).toUpperCase()
+                : '?'}
+            </div>
+            <span className="text-sm font-medium">
+              {uploading ? 'Uploading…' : 'Click to upload logo (square, max 5MB)'}
+            </span>
+          </label>
+        )}
       </div>
       {error && (
         <div className="rounded-xl bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</div>

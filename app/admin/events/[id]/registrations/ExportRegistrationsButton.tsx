@@ -9,6 +9,7 @@ function toExcelRows(registrations: Registration[]): Record<string, string | num
   return registrations.map((r) => ({
     Position: r.position != null ? (r.position === 1 ? '1st' : r.position === 2 ? '2nd' : r.position === 3 ? '3rd' : `${r.position}th`) : '',
     Name: r.name,
+    Category: r.category ?? '',
     Email: r.email,
     Phone: r.phone,
     School: r.school,

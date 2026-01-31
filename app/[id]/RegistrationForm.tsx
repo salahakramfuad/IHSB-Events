@@ -5,9 +5,12 @@ import { UserPlus, CheckCircle, AlertCircle } from 'lucide-react'
 
 interface RegistrationFormProps {
   eventId: string
+  /** If set, registrant must choose one category */
+  categories?: string[]
 }
 
-export default function RegistrationForm({ eventId }: RegistrationFormProps) {
+export default function RegistrationForm({ eventId, categories = [] }: RegistrationFormProps) {
+  const hasCategories = Array.isArray(categories) && categories.length > 0
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [message, setMessage] = useState('')
   const [formData, setFormData] = useState({
@@ -16,6 +19,7 @@ export default function RegistrationForm({ eventId }: RegistrationFormProps) {
     phone: '',
     school: '',
     note: '',
+    category: '',
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -30,6 +34,7 @@ export default function RegistrationForm({ eventId }: RegistrationFormProps) {
     if (!emailRegex.test(formData.email.trim())) return 'Please enter a valid email.'
     if (!formData.phone.trim()) return 'Phone is required.'
     if (!formData.school.trim()) return 'School is required.'
+    if (hasCategories && !formData.category.trim()) return 'Please select a category.'
     return null
   }
 
@@ -54,13 +59,14 @@ export default function RegistrationForm({ eventId }: RegistrationFormProps) {
           phone: formData.phone.trim(),
           school: formData.school.trim(),
           note: formData.note.trim() || undefined,
+          category: hasCategories ? formData.category.trim() || undefined : undefined,
         }),
       })
       const data = await res.json().catch(() => ({}))
       if (res.ok && data.success) {
         setStatus('success')
         setMessage('Registration successful! Check your email for confirmation.')
-        setFormData({ name: '', email: '', phone: '', school: '', note: '' })
+        setFormData({ name: '', email: '', phone: '', school: '', note: '', category: '' })
       } else {
         setStatus('error')
         setMessage(data.error || `Request failed (${res.status}).`)
@@ -83,6 +89,35 @@ export default function RegistrationForm({ eventId }: RegistrationFormProps) {
         <h3 className="text-lg font-semibold text-slate-900">Register for this event</h3>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
+        {hasCategories && (
+          <div>
+            <span className="mb-1.5 block text-sm font-medium text-slate-700">
+              Category <span className="text-red-500">*</span>
+            </span>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Select category">
+              {categories.map((cat) => (
+                <label
+                  key={cat}
+                  className={`cursor-pointer rounded-xl border-2 px-4 py-2.5 text-sm font-medium transition ${
+                    formData.category === cat
+                      ? 'border-[hsl(var(--event-accent))] bg-[hsl(var(--event-accent)/0.15)] text-[hsl(var(--event-accent))]'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="category"
+                    value={cat}
+                    checked={formData.category === cat}
+                    onChange={() => setFormData((prev) => ({ ...prev, category: cat }))}
+                    className="sr-only"
+                  />
+                  {cat}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
         <div>
           <label htmlFor="name" className="mb-1.5 block text-sm font-medium text-slate-700">
             Name <span className="text-red-500">*</span>

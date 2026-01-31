@@ -18,8 +18,8 @@ export async function PATCH(request: NextRequest) {
 
   const { displayName, photoURL } = body
   const updates: { displayName?: string; photoURL?: string } = {}
-  if (typeof displayName === 'string') updates.displayName = displayName.trim() || null
-  if (typeof photoURL === 'string') updates.photoURL = photoURL.trim() || null
+  if (typeof displayName === 'string') updates.displayName = displayName.trim() || undefined
+  if (typeof photoURL === 'string') updates.photoURL = photoURL.trim() || undefined
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(profile)
