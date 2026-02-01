@@ -142,7 +142,7 @@ export default function RegistrationsTableWithSearch({
       await generateRegistrationPDF({
         event,
         registration,
-        logoUrl: event.logo || '/logo.png',
+        logoUrl: event.logo,
       })
     } catch (error) {
       console.error('Failed to generate PDF:', error)
@@ -157,7 +157,7 @@ export default function RegistrationsTableWithSearch({
       await generateAllRegistrationsPDF({
         event,
         registrations: filtered,
-        logoUrl: event.logo || '/logo.png',
+        logoUrl: event.logo,
       })
     } catch (error) {
       console.error('Failed to generate combined PDF:', error)

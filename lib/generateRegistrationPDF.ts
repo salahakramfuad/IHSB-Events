@@ -40,7 +40,18 @@ export async function generateRegistrationPDF({
   const logoSize = 25
   let logoLoaded = false
   
-  if (logoUrl && (logoUrl.startsWith('http') || logoUrl.startsWith('/'))) {
+  // Helper to get initials from event title
+  const getInitials = (title: string) => {
+    return title
+      .split(' ')
+      .filter(word => word.length > 0)
+      .slice(0, 2)
+      .map(word => word[0].toUpperCase())
+      .join('')
+  }
+  
+  // Try to load event logo, otherwise draw initials
+  if (logoUrl && logoUrl.trim() && (logoUrl.startsWith('http') || logoUrl.startsWith('/'))) {
     try {
       const logoData = await loadImageAsBase64(logoUrl)
       doc.addImage(logoData, 'PNG', margin, yPos, logoSize, logoSize)
@@ -48,6 +59,22 @@ export async function generateRegistrationPDF({
     } catch (error) {
       console.error('Failed to load logo:', error)
     }
+  }
+  
+  // If no logo loaded, draw initials
+  if (!logoLoaded) {
+    // Draw circular background
+    doc.setFillColor(79, 70, 229) // Indigo
+    doc.circle(margin + logoSize / 2, yPos + logoSize / 2, logoSize / 2, 'F')
+    
+    // Draw initials
+    const initials = getInitials(event.title)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(14)
+    doc.setTextColor(255, 255, 255)
+    doc.text(initials, margin + logoSize / 2, yPos + logoSize / 2 + 2, { align: 'center' })
+    
+    logoLoaded = true // Mark as loaded so layout uses logo space
   }
 
   // Event name - to the right of logo
@@ -283,12 +310,22 @@ export async function generateAllRegistrationsPDF({
 
   // Load logo once
   let logoData: string | null = null
-  if (logoUrl && (logoUrl.startsWith('http') || logoUrl.startsWith('/'))) {
+  if (logoUrl && logoUrl.trim() && (logoUrl.startsWith('http') || logoUrl.startsWith('/'))) {
     try {
       logoData = await loadImageAsBase64(logoUrl)
     } catch (error) {
       console.error('Failed to load logo:', error)
     }
+  }
+  
+  // Helper to get initials from event title
+  const getInitials = (title: string) => {
+    return title
+      .split(' ')
+      .filter(word => word.length > 0)
+      .slice(0, 2)
+      .map(word => word[0].toUpperCase())
+      .join('')
   }
 
   // Generate QR codes for all registrations first
@@ -347,6 +384,22 @@ export async function generateAllRegistrationsPDF({
         console.error('Failed to add logo to page')
       }
     }
+    
+    // If no logo loaded, draw initials
+    if (!logoLoaded) {
+      // Draw circular background
+      doc.setFillColor(79, 70, 229) // Indigo
+      doc.circle(margin + logoSize / 2, yPos + logoSize / 2, logoSize / 2, 'F')
+      
+      // Draw initials
+      const initials = getInitials(event.title)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(14)
+      doc.setTextColor(255, 255, 255)
+      doc.text(initials, margin + logoSize / 2, yPos + logoSize / 2 + 2, { align: 'center' })
+      
+      logoLoaded = true
+    }
 
     // Event name
     const textStartX = logoLoaded ? margin + logoSize + 10 : margin
@@ -378,12 +431,6 @@ export async function generateAllRegistrationsPDF({
     doc.setFontSize(9)
     doc.setTextColor(255, 255, 255)
     doc.text('REGISTRATION DETAILS', margin + 25, yPos + 5.5, { align: 'center' })
-    
-    // Page indicator
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
-    doc.setTextColor(148, 163, 184)
-    doc.text(`${i + 1} of ${registrations.length}`, pageWidth - margin, yPos + 5.5, { align: 'right' })
     
     yPos += 15
 
