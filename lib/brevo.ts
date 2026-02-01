@@ -131,23 +131,126 @@ export async function sendAwardeeResultEmail({
     const positionLabel =
       position === 1 ? '1st' : position === 2 ? '2nd' : position === 3 ? '3rd' : `${position}th`
 
+    // Dynamic colors and messages based on position
+    const getPositionStyle = () => {
+      if (position === 1) return { color: '#b45309', bg: '#fef3c7', border: '#f59e0b', emoji: '🥇', medal: 'Gold Medal' }
+      if (position === 2) return { color: '#475569', bg: '#f1f5f9', border: '#94a3b8', emoji: '🥈', medal: 'Silver Medal' }
+      if (position === 3) return { color: '#9a3412', bg: '#ffedd5', border: '#ea580c', emoji: '🥉', medal: 'Bronze Medal' }
+      return { color: '#4f46e5', bg: '#eef2ff', border: '#6366f1', emoji: '🏆', medal: 'Top Performer' }
+    }
+
+    const style = getPositionStyle()
+    const firstName = name.split(' ')[0]
+
+    const celebratoryMessage = position <= 3
+      ? `Your hard work, dedication, and talent have truly paid off! Securing the <strong>${positionLabel} position</strong> is a remarkable achievement that speaks volumes about your abilities.`
+      : `Your outstanding performance has earned you a well-deserved spot among the <strong>Top ${position}</strong> participants! This is a fantastic accomplishment that showcases your dedication and skill.`
+
     const emailHtml = `
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><title>Congratulations! - Award Result</title></head>
-<body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-  <h2 style="color:#1a1a1a;">Congratulations! 🎉</h2>
-  <p>Dear ${name},</p>
-  <p>We are pleased to inform you that you have secured the <strong>${positionLabel} position</strong> in the following event.</p>
-  <p style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;margin:16px 0;"><strong>Your position: ${positionLabel}</strong></p>
-  <table style="border-collapse:collapse;width:100%;margin:20px 0;">
-    <tr><td style="padding:8px 0;border-bottom:1px solid #eee;"><strong>Event</strong></td><td style="padding:8px 0;border-bottom:1px solid #eee;">${event.title}</td></tr>
-    <tr><td style="padding:8px 0;border-bottom:1px solid #eee;"><strong>Date</strong></td><td style="padding:8px 0;border-bottom:1px solid #eee;">${formattedDate}</td></tr>
-    <tr><td style="padding:8px 0;border-bottom:1px solid #eee;"><strong>Venue</strong></td><td style="padding:8px 0;border-bottom:1px solid #eee;">${venue}</td></tr>
-    <tr><td style="padding:8px 0;"><strong>Your position</strong></td><td style="padding:8px 0;">${positionLabel}</td></tr>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Congratulations! - Award Result</title>
+</head>
+<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f8fafc;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;margin:0 auto;background-color:#ffffff;">
+    <!-- Header with gradient -->
+    <tr>
+      <td style="background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 100%);padding:40px 30px;text-align:center;">
+        <div style="font-size:48px;margin-bottom:10px;">${style.emoji}</div>
+        <h1 style="color:#ffffff;margin:0;font-size:28px;font-weight:700;">Congratulations!</h1>
+        <p style="color:#e0e7ff;margin:10px 0 0;font-size:16px;">You've achieved something amazing!</p>
+      </td>
+    </tr>
+    
+    <!-- Main content -->
+    <tr>
+      <td style="padding:40px 30px;">
+        <p style="color:#334155;font-size:18px;margin:0 0 20px;">Dear <strong>${firstName}</strong>,</p>
+        
+        <p style="color:#475569;font-size:16px;line-height:1.7;margin:0 0 25px;">
+          We are thrilled to share some wonderful news with you! 🎊
+        </p>
+        
+        <p style="color:#475569;font-size:16px;line-height:1.7;margin:0 0 25px;">
+          ${celebratoryMessage}
+        </p>
+        
+        <!-- Position highlight box -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:30px 0;">
+          <tr>
+            <td style="background:${style.bg};border-left:5px solid ${style.border};border-radius:0 12px 12px 0;padding:25px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="text-align:center;">
+                    <div style="font-size:36px;margin-bottom:8px;">${style.emoji}</div>
+                    <div style="color:${style.color};font-size:32px;font-weight:800;margin-bottom:5px;">${positionLabel} Place</div>
+                    <div style="color:${style.color};font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">${style.medal}</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+        
+        <!-- Event details card -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border-radius:12px;margin:25px 0;">
+          <tr>
+            <td style="padding:25px;">
+              <h3 style="color:#1e293b;font-size:14px;text-transform:uppercase;letter-spacing:1px;margin:0 0 20px;border-bottom:2px solid #e2e8f0;padding-bottom:10px;">Event Details</h3>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="padding:10px 0;border-bottom:1px solid #e2e8f0;">
+                    <span style="color:#64748b;font-size:13px;text-transform:uppercase;">Event</span><br/>
+                    <span style="color:#1e293b;font-size:16px;font-weight:600;">${event.title}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 0;border-bottom:1px solid #e2e8f0;">
+                    <span style="color:#64748b;font-size:13px;text-transform:uppercase;">Date</span><br/>
+                    <span style="color:#1e293b;font-size:16px;font-weight:600;">${formattedDate}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 0;">
+                    <span style="color:#64748b;font-size:13px;text-transform:uppercase;">Venue</span><br/>
+                    <span style="color:#1e293b;font-size:16px;font-weight:600;">${venue}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+        
+        <!-- Motivational message -->
+        <div style="background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);border-radius:12px;padding:20px;margin:25px 0;text-align:center;">
+          <p style="color:#92400e;font-size:15px;margin:0;font-style:italic;">
+            "Success is not final, failure is not fatal: it is the courage to continue that counts."
+          </p>
+          <p style="color:#b45309;font-size:13px;margin:10px 0 0;">— Winston Churchill</p>
+        </div>
+        
+        <p style="color:#475569;font-size:16px;line-height:1.7;margin:25px 0 0;">
+          Your achievement is a testament to your perseverance and commitment. We are incredibly proud of you and excited to celebrate this milestone together!
+        </p>
+        
+        <p style="color:#475569;font-size:16px;line-height:1.7;margin:20px 0 0;">
+          Keep shining and reaching for the stars! ⭐
+        </p>
+      </td>
+    </tr>
+    
+    <!-- Footer -->
+    <tr>
+      <td style="background:#f1f5f9;padding:30px;text-align:center;border-top:1px solid #e2e8f0;">
+        <p style="color:#64748b;font-size:14px;margin:0 0 5px;">With warm regards,</p>
+        <p style="color:#1e293b;font-size:16px;font-weight:700;margin:0;">IHSB Events Team</p>
+        <p style="color:#94a3b8;font-size:12px;margin:15px 0 0;">© ${new Date().getFullYear()} IHSB Events. All rights reserved.</p>
+      </td>
+    </tr>
   </table>
-  <p>Thank you for your participation. We look forward to celebrating your achievement with you.</p>
-  <p>Best regards,<br/>IHSB Events</p>
 </body>
 </html>`
 
@@ -166,7 +269,7 @@ export async function sendAwardeeResultEmail({
     const sendSmtpEmail = new brevo.SendSmtpEmail()
     sendSmtpEmail.sender = { email: senderEmail, name: senderName }
     sendSmtpEmail.to = [{ email: normalizedEmail, name }]
-    sendSmtpEmail.subject = `Congratulations! You secured ${positionLabel} position - ${event.title}`
+    sendSmtpEmail.subject = `🎉 Congratulations ${firstName}! You secured ${positionLabel} place in ${event.title}!`
     sendSmtpEmail.htmlContent = emailHtml
 
     const data = await apiInstance.sendTransacEmail(sendSmtpEmail)
