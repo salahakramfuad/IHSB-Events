@@ -14,7 +14,11 @@ const navItems = [
 
 type Profile = { role?: string; email?: string; displayName?: string; photoURL?: string }
 
-export default function AdminNav() {
+interface AdminNavProps {
+  isCollapsed: boolean
+}
+
+export default function AdminNav({ isCollapsed }: AdminNavProps) {
   const pathname = usePathname()
   const [profile, setProfile] = useState<Profile | null>(null)
 
@@ -33,87 +37,107 @@ export default function AdminNav() {
   const hasPhoto = profile?.photoURL?.trim() && (profile.photoURL.startsWith('http') || profile.photoURL.startsWith('/'))
 
   return (
-    <nav className="flex flex-col gap-0.5 min-h-full">
-      <div className="flex flex-col gap-0.5">
-        {navItems.map(({ href, label, icon: Icon }) => (
+    <div className="flex flex-col h-full">
+      {/* Navigation items - scrollable */}
+      <nav className="flex-1 overflow-y-auto">
+        <div className="flex flex-col gap-0.5">
+          {navItems.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              title={isCollapsed ? label : undefined}
+              className={clsx(
+                'flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition',
+                isCollapsed ? 'justify-center' : 'gap-3',
+                pathname === href || (href !== '/admin' && pathname.startsWith(href))
+                  ? 'bg-indigo-50 text-indigo-700'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              )}
+            >
+              <Icon className="h-5 w-5 shrink-0" aria-hidden />
+              {!isCollapsed && <span>{label}</span>}
+            </Link>
+          ))}
           <Link
-            key={href}
-            href={href}
+            href="/admin/profile"
+            title={isCollapsed ? 'Profile' : undefined}
             className={clsx(
-              'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
-              pathname === href || (href !== '/admin' && pathname.startsWith(href))
+              'flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition',
+              isCollapsed ? 'justify-center' : 'gap-3',
+              pathname === '/admin/profile'
                 ? 'bg-indigo-50 text-indigo-700'
                 : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
             )}
           >
-            <Icon className="h-4 w-4 shrink-0" aria-hidden />
-            {label}
+            <User className="h-5 w-5 shrink-0" aria-hidden />
+            {!isCollapsed && <span>Profile</span>}
           </Link>
-        ))}
-        <Link
-          href="/admin/profile"
-          className={clsx(
-            'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
-            pathname === '/admin/profile'
-              ? 'bg-indigo-50 text-indigo-700'
-              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          {profile?.role === 'superAdmin' && (
+            <Link
+              href="/admin/admins"
+              title={isCollapsed ? 'Admins' : undefined}
+              className={clsx(
+                'flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition',
+                isCollapsed ? 'justify-center' : 'gap-3',
+                pathname.startsWith('/admin/admins')
+                  ? 'bg-indigo-50 text-indigo-700'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              )}
+            >
+              <Users className="h-5 w-5 shrink-0" aria-hidden />
+              {!isCollapsed && <span>Admins</span>}
+            </Link>
           )}
-        >
-          <User className="h-4 w-4 shrink-0" aria-hidden />
-          Profile
-        </Link>
-        {profile?.role === 'superAdmin' && (
-          <Link
-            href="/admin/admins"
-            className={clsx(
-              'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
-              pathname.startsWith('/admin/admins')
-                ? 'bg-indigo-50 text-indigo-700'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            )}
-          >
-            <Users className="h-4 w-4 shrink-0" aria-hidden />
-            Admins
-          </Link>
-        )}
-      </div>
+        </div>
+      </nav>
 
-      <div className="mt-auto border-t border-slate-200 pt-4">
+      {/* User profile and logout - sticky at bottom */}
+      <div className="shrink-0 border-t border-slate-200 bg-white pt-4 mt-4">
         {profile && (
           <Link
             href="/admin/profile"
-            className="mb-3 flex items-center gap-3 rounded-xl px-3 py-2 text-slate-700 transition hover:bg-slate-100"
+            title={isCollapsed ? displayLabel : undefined}
+            className={clsx(
+              'mb-2 flex items-center rounded-xl px-3 py-2 text-slate-700 transition hover:bg-slate-100',
+              isCollapsed ? 'justify-center' : 'gap-3'
+            )}
           >
             {hasPhoto ? (
-              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-slate-100">
+              <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-slate-100">
                 <Image
                   src={profile.photoURL!}
                   alt=""
                   fill
                   className="object-cover"
-                  sizes="40px"
+                  sizes="36px"
                 />
               </div>
             ) : (
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-                <User className="h-5 w-5" aria-hidden />
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                <User className="h-4 w-4" aria-hidden />
               </div>
             )}
-            <span className="min-w-0 truncate text-sm font-medium text-slate-900">
-              {displayLabel}
-            </span>
+            {!isCollapsed && (
+              <span className="min-w-0 truncate text-sm font-medium text-slate-900">
+                {displayLabel}
+              </span>
+            )}
           </Link>
         )}
         <form action="/api/auth/logout" method="POST">
           <button
             type="submit"
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+            title={isCollapsed ? 'Sign out' : undefined}
+            className={clsx(
+              'flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900',
+              isCollapsed ? 'justify-center' : 'gap-3'
+            )}
           >
-            <LogOut className="h-4 w-4 shrink-0" aria-hidden />
-            Sign out
+            <LogOut className="h-5 w-5 shrink-0" aria-hidden />
+            {!isCollapsed && <span>Sign out</span>}
           </button>
         </form>
       </div>
-    </nav>
+    </div>
   )
 }
