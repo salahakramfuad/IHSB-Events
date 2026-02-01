@@ -91,31 +91,27 @@ export default function RegistrationForm({ eventId, categories = [] }: Registrat
       <form onSubmit={handleSubmit} className="space-y-4">
         {hasCategories && (
           <div>
-            <span className="mb-1.5 block text-sm font-medium text-slate-700">
+            <label htmlFor="category" className="mb-1.5 block text-sm font-medium text-slate-700">
               Category <span className="text-red-500">*</span>
-            </span>
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Select category">
+            </label>
+            <select
+              id="category"
+              name="category"
+              required
+              value={formData.category}
+              onChange={(e) => {
+                setFormData((prev) => ({ ...prev, category: e.target.value }))
+                if (status === 'error' || status === 'success') setStatus('idle')
+              }}
+              className={inputClass}
+            >
+              <option value="">Select a category</option>
               {categories.map((cat) => (
-                <label
-                  key={cat}
-                  className={`cursor-pointer rounded-xl border-2 px-4 py-2.5 text-sm font-medium transition ${
-                    formData.category === cat
-                      ? 'border-[hsl(var(--event-accent))] bg-[hsl(var(--event-accent)/0.15)] text-[hsl(var(--event-accent))]'
-                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="category"
-                    value={cat}
-                    checked={formData.category === cat}
-                    onChange={() => setFormData((prev) => ({ ...prev, category: cat }))}
-                    className="sr-only"
-                  />
+                <option key={cat} value={cat}>
                   {cat}
-                </label>
+                </option>
               ))}
-            </div>
+            </select>
           </div>
         )}
         <div>
