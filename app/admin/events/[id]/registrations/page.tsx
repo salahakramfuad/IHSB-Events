@@ -40,7 +40,7 @@ export default async function EventRegistrationsPage({
       </div>
       <RegistrationsTableWithSearch
         eventId={id}
-        eventTitle={event.title}
+        event={event}
         registrations={registrations}
         canEdit={canEdit}
         isSuperAdmin={profile?.role === 'superAdmin'}

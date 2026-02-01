@@ -429,7 +429,7 @@ export default function EventDetailWithEdit({
       <section>
         <RegistrationsTableWithSearch
           eventId={event.id}
-          eventTitle={event.title}
+          event={event}
           registrations={registrations}
           canEdit={canEdit}
           isSuperAdmin={isSuperAdmin}

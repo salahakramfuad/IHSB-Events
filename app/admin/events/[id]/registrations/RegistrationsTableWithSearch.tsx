@@ -3,10 +3,12 @@
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
-import { Search, Users, Send, CheckCircle, Pencil, FileDown } from 'lucide-react'
+import { Search, Users, Send, CheckCircle, Pencil, FileDown, Download } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import type { Registration } from '@/types/registration'
+import type { Event } from '@/types/event'
 import { updateRegistrationPosition, notifySingleAwardee, updateRegistration } from '@/app/admin/actions'
+import { generateRegistrationPDF } from '@/lib/generateRegistrationPDF'
 
 const POSITION_OPTIONS = Array.from({ length: 20 }, (_, i) => i + 1)
 
@@ -33,7 +35,7 @@ function matchSearch(reg: Registration, q: string): boolean {
 
 interface RegistrationsTableWithSearchProps {
   eventId: string
-  eventTitle: string
+  event: Event
   registrations: Registration[]
   canEdit: boolean
   isSuperAdmin: boolean
@@ -42,7 +44,7 @@ interface RegistrationsTableWithSearchProps {
 
 export default function RegistrationsTableWithSearch({
   eventId,
-  eventTitle,
+  event,
   registrations,
   canEdit,
   isSuperAdmin,
@@ -129,8 +131,21 @@ export default function RegistrationsTableWithSearch({
     const ws = XLSX.utils.json_to_sheet(rows)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Registrations')
-    const filename = `${eventTitle.replace(/[^a-z0-9]/gi, '_')}_registrations.xlsx`
+    const filename = `${event.title.replace(/[^a-z0-9]/gi, '_')}_registrations.xlsx`
     XLSX.writeFile(wb, filename)
+  }
+
+  const handleDownloadPDF = async (registration: Registration) => {
+    try {
+      await generateRegistrationPDF({
+        event,
+        registration,
+        logoUrl: event.logo || '/logo.png',
+      })
+    } catch (error) {
+      console.error('Failed to generate PDF:', error)
+      alert('Failed to generate PDF. Please try again.')
+    }
   }
 
   const handleEditClick = (reg: Registration) => {
@@ -302,6 +317,9 @@ export default function RegistrationsTableWithSearch({
                   Edit
                 </th>
               )}
+              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                PDF
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
@@ -386,6 +404,17 @@ export default function RegistrationsTableWithSearch({
                     </button>
                   </td>
                 )}
+                <td className="px-5 py-4">
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadPDF(reg)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100"
+                    title="Download registration certificate"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    PDF
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -535,7 +564,7 @@ export default function RegistrationsTableWithSearch({
             <h3 className="text-lg font-semibold text-slate-900">Publish result</h3>
             <p className="mt-2 text-slate-600">
               Send result notification email to <strong>{notifyModal.name}</strong>? They secured{' '}
-              <strong>{positionLabel(notifyModal.position!)}</strong> position in &quot;{eventTitle}&quot;.
+              <strong>{positionLabel(notifyModal.position!)}</strong> position in &quot;{event.title}&quot;.
             </p>
             <p className="mt-1 text-sm text-slate-500">
               Email will be sent to: {notifyModal.email}
