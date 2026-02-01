@@ -4,6 +4,7 @@ import { cache } from 'react'
 import type { DocumentSnapshot } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase-admin'
 import { Event } from '@/types/event'
+import type { FeaturedApplicant } from '@/types/registration'
 
 function toEvent(doc: DocumentSnapshot): Event {
   const data = doc.data()!
@@ -69,9 +70,6 @@ export const getPublicEvent = cache(async (id: string): Promise<Event | null> =>
   }
 })
 
-/** Featured applicant for public display (position 1–20 only) */
-export type FeaturedApplicant = { position: number; name: string; school?: string }
-
 export const getPublicEventFeaturedRegistrations = cache(
   async (eventId: string): Promise<FeaturedApplicant[]> => {
     if (!adminDb) return []
@@ -90,6 +88,7 @@ export const getPublicEventFeaturedRegistrations = cache(
             position: pos,
             name: data.name ?? '',
             school: data.school ?? undefined,
+            registrationId: data.registrationId ?? doc.id,
           })
         }
       })

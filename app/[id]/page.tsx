@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Metadata } from 'next'
-import { Calendar, Clock, MapPin, ArrowLeft, Award } from 'lucide-react'
+import { Calendar, Clock, MapPin, ArrowLeft, Award, Hash } from 'lucide-react'
 import { getPublicEvent, getPublicEventFeaturedRegistrations } from '@/app/events/actions'
 import { notFound } from 'next/navigation'
 import RegistrationForm from './RegistrationForm'
@@ -119,10 +119,18 @@ export default async function EventDetailPage({
                         >
                           {a.position === 1 ? '1st' : a.position === 2 ? '2nd' : a.position === 3 ? '3rd' : `${a.position}th`}
                         </span>
-                        <div>
-                          <span className="font-medium text-slate-900">{a.name}</span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-900">{a.name}</span>
+                            {a.registrationId && (
+                              <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+                                <Hash className="h-3 w-3" aria-hidden />
+                                {a.registrationId}
+                              </span>
+                            )}
+                          </div>
                           {a.school && (
-                            <span className="ml-2 text-sm text-slate-600">— {a.school}</span>
+                            <span className="text-sm text-slate-600">{a.school}</span>
                           )}
                         </div>
                       </li>

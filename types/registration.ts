@@ -20,4 +20,5 @@ export type FeaturedApplicant = {
   position: number
   name: string
   school?: string
+  registrationId?: string
 }
