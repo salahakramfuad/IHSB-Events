@@ -3,12 +3,12 @@
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
-import { Search, Users, Send, CheckCircle, Pencil, FileDown, Download } from 'lucide-react'
+import { Search, Users, Send, CheckCircle, Pencil, FileDown, Download, FileStack } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import type { Registration } from '@/types/registration'
 import type { Event } from '@/types/event'
 import { updateRegistrationPosition, notifySingleAwardee, updateRegistration } from '@/app/admin/actions'
-import { generateRegistrationPDF } from '@/lib/generateRegistrationPDF'
+import { generateRegistrationPDF, generateAllRegistrationsPDF } from '@/lib/generateRegistrationPDF'
 
 const POSITION_OPTIONS = Array.from({ length: 20 }, (_, i) => i + 1)
 
@@ -135,6 +135,8 @@ export default function RegistrationsTableWithSearch({
     XLSX.writeFile(wb, filename)
   }
 
+  const [downloadingAllPDFs, setDownloadingAllPDFs] = useState(false)
+
   const handleDownloadPDF = async (registration: Registration) => {
     try {
       await generateRegistrationPDF({
@@ -145,6 +147,23 @@ export default function RegistrationsTableWithSearch({
     } catch (error) {
       console.error('Failed to generate PDF:', error)
       alert('Failed to generate PDF. Please try again.')
+    }
+  }
+
+  const handleDownloadAllPDFs = async () => {
+    if (filtered.length === 0) return
+    setDownloadingAllPDFs(true)
+    try {
+      await generateAllRegistrationsPDF({
+        event,
+        registrations: filtered,
+        logoUrl: event.logo || '/logo.png',
+      })
+    } catch (error) {
+      console.error('Failed to generate combined PDF:', error)
+      alert('Failed to generate combined PDF. Please try again.')
+    } finally {
+      setDownloadingAllPDFs(false)
     }
   }
 
@@ -263,15 +282,26 @@ export default function RegistrationsTableWithSearch({
           <p className="text-xs text-slate-500">
             Showing {filtered.length} of {registrations.length} applicants
           </p>
-          <button
-            type="button"
-            onClick={handleExportExcel}
-            disabled={filtered.length === 0}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <FileDown className="h-4 w-4" />
-            Download Excel
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadAllPDFs}
+              disabled={filtered.length === 0 || downloadingAllPDFs}
+              className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 shadow-sm hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FileStack className="h-4 w-4" />
+              {downloadingAllPDFs ? 'Generating...' : 'Download All PDFs'}
+            </button>
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              disabled={filtered.length === 0}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FileDown className="h-4 w-4" />
+              Download Excel
+            </button>
+          </div>
         </div>
       </div>
 
