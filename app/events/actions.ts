@@ -83,13 +83,15 @@ export const getPublicEventFeaturedRegistrations = cache(
       snapshot.forEach((doc) => {
         const data = doc.data()
         const pos = data.position
-        if (typeof pos === 'number' && pos >= 1 && pos <= 20) {
+        const hasResultNotified = data.resultNotifiedAt != null
+        if (typeof pos === 'number' && pos >= 1 && pos <= 20 && hasResultNotified) {
           const regId = data.registrationId ?? doc.id
           list.push({
             position: pos,
             name: (data.name ?? data.fullName ?? data.studentName ?? regId ?? '').trim() || 'Awardee',
             school: data.school ?? undefined,
             registrationId: regId,
+            category: data.category ?? undefined,
           })
         }
       })

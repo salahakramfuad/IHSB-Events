@@ -66,6 +66,19 @@ export default function EventDetailWithEdit({
     .filter((r) => r.position != null && r.position >= 1 && r.position <= 20)
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
 
+  const hasCategories = Array.isArray(event.categories) && event.categories.length > 0
+  const winnersByCategory = hasCategories
+    ? winners.reduce<Record<string, typeof winners>>((acc, w) => {
+        const cat = w.category?.trim() || 'Uncategorized'
+        if (!acc[cat]) acc[cat] = []
+        acc[cat].push(w)
+        return acc
+      }, {})
+    : null
+  const categoryOrder = hasCategories && winnersByCategory
+    ? [...(event.categories ?? []).filter((c) => winnersByCategory[c]), ...Object.keys(winnersByCategory).filter((k) => !(event.categories ?? []).includes(k))]
+    : []
+
   const positionLabel = (n: number) =>
     n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`
 
@@ -311,6 +324,76 @@ export default function EventDetailWithEdit({
               {winners.length}
             </span>
           </div>
+          {hasCategories && winnersByCategory ? (
+            <div className="space-y-8">
+              {categoryOrder.map((cat) => {
+                const catWinners = winnersByCategory[cat] ?? []
+                if (catWinners.length === 0) return null
+                return (
+                  <div key={cat}>
+                    <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-500">
+                      {cat}
+                    </h3>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {catWinners.map((winner) => (
+                        <div
+                          key={winner.id}
+                          className={`overflow-hidden rounded-xl border shadow-sm transition hover:shadow-md ${getPositionColor(winner.position!)}`}
+                        >
+                          <div className="p-4">
+                            <div className="mb-2 flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <Award
+                                  className={`h-5 w-5 shrink-0 ${
+                                    winner.position === 1
+                                      ? 'text-amber-500'
+                                      : winner.position === 2
+                                        ? 'text-slate-500'
+                                        : winner.position === 3
+                                          ? 'text-orange-600'
+                                          : 'text-slate-400'
+                                  }`}
+                                  aria-hidden
+                                />
+                                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                                  {positionLabel(winner.position!)}
+                                </span>
+                              </div>
+                            </div>
+                            <h3 className="mb-1 font-semibold text-slate-900">{winner.name}</h3>
+                            <p className="text-sm text-slate-600">{winner.school}</p>
+                            <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
+                              <Hash className="h-3 w-3" aria-hidden />
+                              <span>{winner.registrationId || winner.id}</span>
+                            </div>
+                            {canEdit && (
+                              <div className="mt-3 pt-3 border-t border-slate-200/60">
+                                {winner.resultNotifiedAt ? (
+                                  <div className="flex items-center gap-1.5 text-xs text-emerald-600">
+                                  <CheckCircle className="h-3.5 w-3.5" aria-hidden />
+                                  <span>Notified</span>
+                                </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleNotifyClick(winner)}
+                                    className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-indigo-700"
+                                  >
+                                    <Send className="h-3.5 w-3.5" aria-hidden />
+                                    Publish
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {winners.map((winner) => (
               <div
@@ -343,11 +426,6 @@ export default function EventDetailWithEdit({
                     <Hash className="h-3 w-3" aria-hidden />
                     <span>{winner.registrationId || winner.id}</span>
                   </div>
-                  {winner.category && (
-                    <span className="mt-2 inline-flex rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
-                      {winner.category}
-                    </span>
-                  )}
                   {canEdit && (
                     <div className="mt-3 pt-3 border-t border-slate-200/60">
                       {winner.resultNotifiedAt ? (
@@ -371,6 +449,7 @@ export default function EventDetailWithEdit({
               </div>
             ))}
           </div>
+          )}
         </section>
       )}
 

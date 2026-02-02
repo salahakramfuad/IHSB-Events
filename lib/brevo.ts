@@ -38,25 +38,112 @@ export async function sendIHSBConfirmationEmail({
     const firstDate = getFirstEventDate(event.date)
     const formattedDate = firstDate ? formatEventDates(parseEventDates(event.date), 'long') : 'TBA'
     const venue = event.venue || event.location || 'TBA'
+    const firstName = name.split(' ')[0] || name
 
     const emailHtml = `
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><title>Registration Confirmation</title></head>
-<body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-  <h2 style="color:#1a1a1a;">Registration Confirmed</h2>
-  <p>Dear ${name},</p>
-  <p>Thank you for registering! Your spot has been secured for the following event.</p>
-  <p style="background:#f0f9ff;border-left:4px solid #0ea5e9;padding:12px 16px;margin:16px 0;"><strong>Your registration ID: ${registrationId}</strong></p>
-  <p>Please save this ID for your records. You may need it when checking in at the event.</p>
-  <table style="border-collapse:collapse;width:100%;margin:20px 0;">
-    <tr><td style="padding:8px 0;border-bottom:1px solid #eee;"><strong>Event</strong></td><td style="padding:8px 0;border-bottom:1px solid #eee;">${event.title}</td></tr>
-    <tr><td style="padding:8px 0;border-bottom:1px solid #eee;"><strong>Date</strong></td><td style="padding:8px 0;border-bottom:1px solid #eee;">${formattedDate}</td></tr>
-    <tr><td style="padding:8px 0;border-bottom:1px solid #eee;"><strong>Venue</strong></td><td style="padding:8px 0;border-bottom:1px solid #eee;">${venue}</td></tr>
-    <tr><td style="padding:8px 0;"><strong>Registration ID</strong></td><td style="padding:8px 0;">${registrationId}</td></tr>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registration Confirmed - ${event.title}</title>
+</head>
+<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f8fafc;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;margin:0 auto;background-color:#ffffff;">
+    <!-- Header with gradient -->
+    <tr>
+      <td style="background:linear-gradient(135deg,#059669 0%,#10b981 100%);padding:40px 30px;text-align:center;">
+        <div style="font-size:48px;margin-bottom:10px;">✅</div>
+        <h1 style="color:#ffffff;margin:0;font-size:28px;font-weight:700;">You&apos;re Registered!</h1>
+        <p style="color:#d1fae5;margin:10px 0 0;font-size:16px;">Your spot has been secured</p>
+      </td>
+    </tr>
+    
+    <!-- Main content -->
+    <tr>
+      <td style="padding:40px 30px;">
+        <p style="color:#334155;font-size:18px;margin:0 0 20px;">Dear <strong>${firstName}</strong>,</p>
+        
+        <p style="color:#475569;font-size:16px;line-height:1.7;margin:0 0 25px;">
+          Thank you for registering! We&apos;re excited to have you join us. Your registration has been confirmed.
+        </p>
+        
+        <!-- Registration ID highlight box -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:30px 0;">
+          <tr>
+            <td style="background:#ecfdf5;border-left:5px solid #10b981;border-radius:0 12px 12px 0;padding:25px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="text-align:center;">
+                    <div style="color:#047857;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;">Your Registration ID</div>
+                    <div style="color:#065f46;font-size:28px;font-weight:800;letter-spacing:2px;font-family:monospace;">${registrationId}</div>
+                    <p style="color:#047857;font-size:13px;margin:12px 0 0;">Save this ID — you&apos;ll need it for check-in</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+        
+        <!-- Event details card -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border-radius:12px;margin:25px 0;">
+          <tr>
+            <td style="padding:25px;">
+              <h3 style="color:#1e293b;font-size:14px;text-transform:uppercase;letter-spacing:1px;margin:0 0 20px;border-bottom:2px solid #e2e8f0;padding-bottom:10px;">Event Details</h3>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="padding:12px 0;border-bottom:1px solid #e2e8f0;">
+                    <span style="color:#64748b;font-size:13px;text-transform:uppercase;">Event</span><br/>
+                    <span style="color:#1e293b;font-size:16px;font-weight:600;">${event.title}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:12px 0;border-bottom:1px solid #e2e8f0;">
+                    <span style="color:#64748b;font-size:13px;text-transform:uppercase;">Date</span><br/>
+                    <span style="color:#1e293b;font-size:16px;font-weight:600;">${formattedDate}</span>
+                  </td>
+                </tr>
+                ${event.time?.trim() ? `
+                <tr>
+                  <td style="padding:12px 0;border-bottom:1px solid #e2e8f0;">
+                    <span style="color:#64748b;font-size:13px;text-transform:uppercase;">Time</span><br/>
+                    <span style="color:#1e293b;font-size:16px;font-weight:600;">${event.time.trim()}</span>
+                  </td>
+                </tr>
+                ` : ''}
+                <tr>
+                  <td style="padding:12px 0;">
+                    <span style="color:#64748b;font-size:13px;text-transform:uppercase;">Venue</span><br/>
+                    <span style="color:#1e293b;font-size:16px;font-weight:600;">${venue}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+        
+        <!-- Call to action / reminder -->
+        <div style="background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);border-radius:12px;padding:20px;margin:25px 0;text-align:center;border:1px solid #bfdbfe;">
+          <p style="color:#1e40af;font-size:15px;margin:0;font-weight:500;">
+            📅 Add this event to your calendar and we&apos;ll see you there!
+          </p>
+        </div>
+        
+        <p style="color:#475569;font-size:16px;line-height:1.7;margin:25px 0 0;">
+          If you have any questions, feel free to reach out. We look forward to seeing you!
+        </p>
+      </td>
+    </tr>
+    
+    <!-- Footer -->
+    <tr>
+      <td style="background:#f1f5f9;padding:30px;text-align:center;border-top:1px solid #e2e8f0;">
+        <p style="color:#64748b;font-size:14px;margin:0 0 5px;">Best regards,</p>
+        <p style="color:#1e293b;font-size:16px;font-weight:700;margin:0;">IHSB Events Team</p>
+        <p style="color:#94a3b8;font-size:12px;margin:15px 0 0;">© ${new Date().getFullYear()} IHSB Events. All rights reserved.</p>
+      </td>
+    </tr>
   </table>
-  <p>We look forward to seeing you. If you have any questions, please contact us.</p>
-  <p>Best regards,<br/>IHSB Events</p>
 </body>
 </html>`
 
@@ -102,6 +189,8 @@ export interface AwardeeResultEmailProps {
   name: string
   event: Event
   position: number
+  /** Category when event has categories */
+  category?: string
 }
 
 /**
@@ -112,6 +201,7 @@ export async function sendAwardeeResultEmail({
   name,
   event,
   position,
+  category,
 }: AwardeeResultEmailProps): Promise<IHSBEmailResult> {
   try {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -213,6 +303,14 @@ export async function sendAwardeeResultEmail({
                     <span style="color:#1e293b;font-size:16px;font-weight:600;">${formattedDate}</span>
                   </td>
                 </tr>
+                ${category?.trim() ? `
+                <tr>
+                  <td style="padding:10px 0;border-bottom:1px solid #e2e8f0;">
+                    <span style="color:#64748b;font-size:13px;text-transform:uppercase;">Category</span><br/>
+                    <span style="color:#1e293b;font-size:16px;font-weight:600;">${category.trim()}</span>
+                  </td>
+                </tr>
+                ` : ''}
                 <tr>
                   <td style="padding:10px 0;">
                     <span style="color:#64748b;font-size:13px;text-transform:uppercase;">Venue</span><br/>

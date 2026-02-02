@@ -21,4 +21,6 @@ export type FeaturedApplicant = {
   name: string
   school?: string
   registrationId?: string
+  /** Category chosen when event has categories */
+  category?: string
 }

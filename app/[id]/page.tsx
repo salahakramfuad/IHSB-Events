@@ -97,14 +97,28 @@ export default async function EventDetailPage({
               </section>
             )}
 
-            {featured.length > 0 && event.resultsPublishedAt && (
+            {featured.length > 0 && (
               <section className="rounded-2xl bg-white/95 p-6 shadow-sm backdrop-blur">
                 <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-900">
                   <Award className="h-5 w-5 text-[hsl(var(--event-accent))]" aria-hidden />
                   Awardees
                 </h2>
-                <ul className="space-y-2">
-                  {featured.map((a) => {
+                {(() => {
+                  const hasCategories = Array.isArray(event.categories) && event.categories.length > 0
+                  const grouped = hasCategories
+                    ? featured.reduce<Record<string, typeof featured>>((acc, a) => {
+                        const cat = a.category?.trim() || 'Uncategorized'
+                        if (!acc[cat]) acc[cat] = []
+                        acc[cat].push(a)
+                        return acc
+                      }, {})
+                    : null
+                  const catOrder = event.categories ?? []
+                  const allCatKeys = grouped ? Object.keys(grouped) : []
+                  const categories = grouped
+                    ? [...catOrder.filter((c) => allCatKeys.includes(c)), ...allCatKeys.filter((k) => !catOrder.includes(k))]
+                    : [null]
+                  const renderAwardee = (a: (typeof featured)[0]) => {
                     const isGold = a.position === 1
                     const isSilver = a.position === 2
                     const isBronze = a.position === 3
@@ -124,7 +138,7 @@ export default async function EventDetailPage({
                           : 'bg-slate-100 text-slate-600'
                     return (
                       <li
-                        key={`${a.position}-${a.name}`}
+                        key={`${a.position}-${a.name}-${a.registrationId}`}
                         className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${rowBg}`}
                       >
                         <span
@@ -148,8 +162,28 @@ export default async function EventDetailPage({
                         </div>
                       </li>
                     )
-                  })}
-                </ul>
+                  }
+                  return (
+                    <div className="space-y-6">
+                      {categories.map((cat) => {
+                        const list = cat ? (grouped?.[cat] ?? []).sort((a, b) => a.position - b.position) : featured
+                        if (list.length === 0) return null
+                        return (
+                          <div key={cat ?? 'all'}>
+                            {cat && (
+                              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-500">
+                                {cat}
+                              </h3>
+                            )}
+                            <ul className="space-y-2">
+                              {list.map(renderAwardee)}
+                            </ul>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
               </section>
             )}
 

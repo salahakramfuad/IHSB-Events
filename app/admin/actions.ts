@@ -431,6 +431,7 @@ export async function notifySingleAwardee(
       name: regData.name ?? '',
       event: eventForEmail,
       position: pos,
+      category: regData.category ?? undefined,
     })
 
     if (!result.success) {
@@ -474,16 +475,18 @@ export async function publishEventResults(
       .collection('registrations')
       .get()
 
-    const awardees: { name: string; email: string; position: number }[] = []
+    const awardees: { docId: string; name: string; email: string; position: number; category?: string }[] = []
     regsSnap.forEach((doc) => {
       const data = doc.data()
       const pos = data.position
       if (typeof pos === 'number' && pos >= 1 && pos <= 20) {
         const regId = data.registrationId ?? doc.id
         awardees.push({
+          docId: doc.id,
           name: (data.name ?? data.fullName ?? data.studentName ?? regId ?? '').trim() || 'Awardee',
           email: data.email ?? '',
           position: pos,
+          category: data.category ?? undefined,
         })
       }
     })
@@ -525,7 +528,7 @@ export async function publishEventResults(
       createdBy: eventData.createdBy ?? '',
     }
 
-    // Send confirmation emails in parallel
+    // Send confirmation emails in parallel and set resultNotifiedAt on each registration
     const emailPromises = awardees
       .filter((a) => a.email?.trim())
       .map((a) =>
@@ -534,10 +537,17 @@ export async function publishEventResults(
           name: a.name,
           event: eventForEmail,
           position: a.position,
+          category: a.category,
         })
       )
     const results = await Promise.all(emailPromises)
     const sent = results.filter((r) => r.success).length
+
+    // Mark each awardee as notified so they appear on the public page
+    const regsRef = adminDb.collection('events').doc(eventId).collection('registrations')
+    await Promise.all(
+      awardees.map((a) => regsRef.doc(a.docId).update({ resultNotifiedAt: now }))
+    )
 
     return { success: true, sent }
   } catch (error) {
