@@ -48,10 +48,13 @@ export const revalidate = 60
 
 export default async function EventDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ payment?: string }>
 }) {
   const { id } = await params
+  const { payment: paymentStatus } = await searchParams
   const [event, featured] = await Promise.all([
     getPublicEvent(id),
     getPublicEventFeaturedRegistrations(id),
@@ -234,8 +237,49 @@ export default async function EventDetailPage({
                   View other events
                 </Link>
               </div>
+            ) : paymentStatus === 'success' ? (
+              <div className="sticky top-24 rounded-2xl border-2 border-emerald-200/80 bg-white/95 p-8 shadow-sm backdrop-blur text-center">
+                <EventLogo title={event.title} logo={event.logo} size="lg" className="mx-auto mb-5" />
+                <h3 className="text-2xl font-bold text-slate-900">Registration complete!</h3>
+                <p className="mt-3 text-slate-600 leading-relaxed">
+                  Your payment was successful. A confirmation email has been sent to your inbox with your registration details.
+                </p>
+              </div>
+            ) : paymentStatus === 'failed' ? (
+              <div className="sticky top-24 rounded-2xl border-2 border-red-200/80 bg-white/95 p-8 shadow-sm backdrop-blur text-center">
+                <EventLogo title={event.title} logo={event.logo} size="lg" className="mx-auto mb-5" />
+                <h3 className="text-2xl font-bold text-slate-900">Payment failed</h3>
+                <p className="mt-3 text-slate-600 leading-relaxed">
+                  Your payment could not be completed. Please try registering again.
+                </p>
+                <Link
+                  href={`/${id}`}
+                  className="mt-5 inline-block rounded-full bg-[hsl(var(--event-accent))] px-5 py-2.5 font-semibold text-white transition hover:opacity-90"
+                >
+                  Try again
+                </Link>
+              </div>
+            ) : paymentStatus === 'cancelled' ? (
+              <div className="sticky top-24 rounded-2xl border-2 border-amber-200/80 bg-white/95 p-8 shadow-sm backdrop-blur text-center">
+                <EventLogo title={event.title} logo={event.logo} size="lg" className="mx-auto mb-5" />
+                <h3 className="text-2xl font-bold text-slate-900">Payment cancelled</h3>
+                <p className="mt-3 text-slate-600 leading-relaxed">
+                  You cancelled the payment. You can register again when ready.
+                </p>
+                <Link
+                  href={`/${id}`}
+                  className="mt-5 inline-block rounded-full bg-[hsl(var(--event-accent))] px-5 py-2.5 font-semibold text-white transition hover:opacity-90"
+                >
+                  Register again
+                </Link>
+              </div>
             ) : (
-              <RegistrationForm eventId={id} categories={event.categories} />
+              <RegistrationForm
+                eventId={id}
+                categories={event.categories}
+                isPaid={event.isPaid}
+                amount={event.amount}
+              />
             )}
           </div>
         </div>

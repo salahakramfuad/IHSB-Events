@@ -10,6 +10,10 @@ export type Registration = {
   category?: string
   /** 1–20 = featured position; null = no position */
   position: number | null
+  /** 'pending' = awaiting payment; 'completed' = paid or free; undefined = legacy completed */
+  paymentStatus?: 'pending' | 'completed'
+  /** bKash transaction ID after successful payment */
+  bkashTrxId?: string
   /** ISO date when result email was sent; null = not yet notified */
   resultNotifiedAt?: string | null
   createdAt: Date | string

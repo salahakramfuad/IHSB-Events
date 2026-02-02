@@ -3,11 +3,11 @@
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
-import { Search, Users, Send, CheckCircle, Pencil, FileDown, Download, FileStack } from 'lucide-react'
+import { Search, Users, Send, CheckCircle, Pencil, FileDown, Download, FileStack, Trash2, X } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import type { Registration } from '@/types/registration'
 import type { Event } from '@/types/event'
-import { updateRegistrationPosition, notifySingleAwardee, updateRegistration } from '@/app/admin/actions'
+import { updateRegistrationPosition, notifySingleAwardee, updateRegistration, deleteRegistration } from '@/app/admin/actions'
 import { generateRegistrationPDF, generateAllRegistrationsPDF } from '@/lib/generateRegistrationPDF'
 
 const POSITION_OPTIONS = Array.from({ length: 20 }, (_, i) => i + 1)
@@ -55,11 +55,15 @@ export default function RegistrationsTableWithSearch({
   const [filterPosition, setFilterPosition] = useState<string>('all')
   const [filterCategory, setFilterCategory] = useState<string>('all')
   const [filterNotified, setFilterNotified] = useState<string>('all')
+  const [filterPayment, setFilterPayment] = useState<string>('all')
+  const isPaidEvent = !!event.isPaid
   const [pending, startTransition] = useTransition()
   const [notifyModal, setNotifyModal] = useState<Registration | null>(null)
   const [notifyLoading, setNotifyLoading] = useState(false)
   const [editModal, setEditModal] = useState<Registration | null>(null)
   const [editLoading, setEditLoading] = useState(false)
+  const [deleteModal, setDeleteModal] = useState<Registration | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   const filtered = useMemo(() => {
     return registrations.filter((reg) => {
@@ -78,9 +82,14 @@ export default function RegistrationsTableWithSearch({
         if (filterNotified === 'yes' && !notified) return false
         if (filterNotified === 'no' && notified) return false
       }
+      if (isPaidEvent && filterPayment !== 'all') {
+        const status = reg.paymentStatus ?? 'completed'
+        if (filterPayment === 'pending' && status !== 'pending') return false
+        if (filterPayment === 'completed' && status !== 'completed') return false
+      }
       return true
     })
-  }, [registrations, search, filterPosition, filterCategory, filterNotified])
+  }, [registrations, search, filterPosition, filterCategory, filterNotified, filterPayment, isPaidEvent])
 
   const handlePositionChange = (registrationDocId: string, value: string) => {
     const position = value === '' ? null : parseInt(value, 10)
@@ -114,20 +123,30 @@ export default function RegistrationsTableWithSearch({
     n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`
 
   const handleExportExcel = () => {
-    const rows = filtered.map((reg) => ({
-      Position: reg.position != null ? positionLabel(reg.position) : '',
-      Name: reg.name ?? '',
-      Email: reg.email ?? '',
-      Phone: reg.phone ?? '',
-      School: reg.school ?? '',
-      Category: reg.category ?? '',
-      Note: reg.note ?? '',
-      'Registration ID': reg.registrationId ?? reg.id ?? '',
-      Notified: reg.resultNotifiedAt ? 'Yes' : 'No',
-      'Registered At': reg.createdAt
-        ? format(new Date(reg.createdAt), 'MMM d, yyyy h:mm a')
-        : '',
-    }))
+    const rows = filtered.map((reg) => {
+      const base = {
+        Position: reg.position != null ? positionLabel(reg.position) : '',
+        Name: reg.name ?? '',
+        Email: reg.email ?? '',
+        Phone: reg.phone ?? '',
+        School: reg.school ?? '',
+        Category: reg.category ?? '',
+        Note: reg.note ?? '',
+        'Registration ID': reg.registrationId ?? reg.id ?? '',
+        Notified: reg.resultNotifiedAt ? 'Yes' : 'No',
+        'Registered At': reg.createdAt
+          ? format(new Date(reg.createdAt), 'MMM d, yyyy h:mm a')
+          : '',
+      }
+      if (isPaidEvent) {
+        return {
+          ...base,
+          'Payment Status': reg.paymentStatus === 'pending' ? 'Pending' : 'Completed',
+          'bKash Trx ID': reg.bkashTrxId ?? '',
+        }
+      }
+      return base
+    })
     const ws = XLSX.utils.json_to_sheet(rows)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Registrations')
@@ -169,6 +188,26 @@ export default function RegistrationsTableWithSearch({
 
   const handleEditClick = (reg: Registration) => {
     setEditModal(reg)
+  }
+
+  const handleDeleteClick = (reg: Registration) => {
+    setDeleteModal(reg)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteModal) return
+    setDeleteLoading(true)
+    try {
+      const result = await deleteRegistration(eventId, deleteModal.id)
+      if (result.success) {
+        setDeleteModal(null)
+        router.refresh()
+      } else {
+        alert(result.error ?? 'Failed to delete registration.')
+      }
+    } finally {
+      setDeleteLoading(false)
+    }
   }
 
   const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -263,7 +302,19 @@ export default function RegistrationsTableWithSearch({
             <option value="yes">Notified</option>
             <option value="no">Not yet notified</option>
           </select>
-          {(search.trim() || filterPosition !== 'all' || filterCategory !== 'all' || filterNotified !== 'all') && (
+          {isPaidEvent && (
+            <select
+              value={filterPayment}
+              onChange={(e) => setFilterPayment(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              aria-label="Filter by payment status"
+            >
+              <option value="all">All payments</option>
+              <option value="pending">Pending</option>
+              <option value="completed">Completed</option>
+            </select>
+          )}
+          {(search.trim() || filterPosition !== 'all' || filterCategory !== 'all' || filterNotified !== 'all' || (isPaidEvent && filterPayment !== 'all')) && (
             <button
               type="button"
               onClick={() => {
@@ -271,6 +322,7 @@ export default function RegistrationsTableWithSearch({
                 setFilterPosition('all')
                 setFilterCategory('all')
                 setFilterNotified('all')
+                setFilterPayment('all')
               }}
               className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
             >
@@ -337,6 +389,11 @@ export default function RegistrationsTableWithSearch({
               <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Registered
               </th>
+              {isPaidEvent && (
+                <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Payment
+                </th>
+              )}
               {canEdit && (
                 <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Publish
@@ -350,6 +407,11 @@ export default function RegistrationsTableWithSearch({
               <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                 PDF
               </th>
+              {isSuperAdmin && (
+                <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Delete
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
@@ -398,6 +460,24 @@ export default function RegistrationsTableWithSearch({
                     ? format(new Date(reg.createdAt), 'PPp')
                     : '—'}
                 </td>
+                {isPaidEvent && (
+                  <td className="px-5 py-4">
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        reg.paymentStatus === 'pending'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-emerald-100 text-emerald-800'
+                      }`}
+                    >
+                      {reg.paymentStatus === 'pending' ? 'Pending' : 'Completed'}
+                    </span>
+                    {reg.bkashTrxId && (
+                      <span className="ml-1.5 block text-xs text-slate-500" title="bKash transaction ID">
+                        {reg.bkashTrxId}
+                      </span>
+                    )}
+                  </td>
+                )}
                 {canEdit && (
                   <td className="px-5 py-4">
                     {reg.position != null && reg.position >= 1 && reg.position <= 20 ? (
@@ -445,6 +525,19 @@ export default function RegistrationsTableWithSearch({
                     PDF
                   </button>
                 </td>
+                {isSuperAdmin && (
+                  <td className="px-5 py-4">
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteClick(reg)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-100"
+                      title="Delete registration"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -577,6 +670,59 @@ export default function RegistrationsTableWithSearch({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete registration modal */}
+      {deleteModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => !deleteLoading && setDeleteModal(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border-2 border-red-200 bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">Delete registration</h3>
+              <button
+                type="button"
+                onClick={() => !deleteLoading && setDeleteModal(null)}
+                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mb-6 rounded-xl bg-amber-50 border border-amber-200 p-4">
+              <p className="font-medium text-amber-900">Warning</p>
+              <p className="mt-1 text-sm text-amber-800">
+                This will permanently delete the registration for <strong>{deleteModal.name}</strong> ({deleteModal.email}).
+                This action cannot be undone.
+              </p>
+            </div>
+            <p className="mb-4 text-sm text-slate-600">
+              Are you sure you want to delete this registration?
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                disabled={deleteLoading}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-60"
+              >
+                {deleteLoading ? 'Deleting…' : 'Yes, delete'}
+              </button>
+              <button
+                type="button"
+                onClick={() => !deleteLoading && setDeleteModal(null)}
+                disabled={deleteLoading}
+                className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

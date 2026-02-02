@@ -17,6 +17,10 @@ export type Event = {
   categories?: string[]
   /** Color theme for registration PDFs: indigo, purple, blue, emerald, amber, rose */
   colorTheme?: string
+  /** If true, registration requires bKash payment */
+  isPaid?: boolean
+  /** Amount in BDT (required when isPaid is true) */
+  amount?: number
   /** ISO date when awardee results were published; null = not published */
   resultsPublishedAt?: string | null
   createdAt: Date | string

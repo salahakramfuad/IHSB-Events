@@ -6,11 +6,13 @@ import { UserPlus, CheckCircle, AlertCircle } from 'lucide-react'
 interface RegistrationFormProps {
   eventId: string
   categories?: string[]
+  isPaid?: boolean
+  amount?: number
 }
 
-export default function RegistrationForm({ eventId, categories = [] }: RegistrationFormProps) {
+export default function RegistrationForm({ eventId, categories = [], isPaid, amount }: RegistrationFormProps) {
   const hasCategories = Array.isArray(categories) && categories.length > 0
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error' | 'redirecting'>('idle')
   const [message, setMessage] = useState('')
   const [formData, setFormData] = useState({
     name: '',
@@ -48,27 +50,59 @@ export default function RegistrationForm({ eventId, categories = [] }: Registrat
     setStatus('loading')
     setMessage('')
     try {
-      const res = await fetch('/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          eventId,
+      if (isPaid && amount != null && amount > 0) {
+        setStatus('redirecting')
+        setMessage('Redirecting to bKash…')
+        const clientGeneratedId = `P${Date.now()}${Math.random().toString(36).slice(2, 8)}`
+        const registrationData = {
           name: formData.name.trim(),
           email: formData.email.trim(),
           phone: formData.phone.trim(),
           school: formData.school.trim(),
-          note: formData.note.trim() || undefined,
-          category: hasCategories ? formData.category.trim() || undefined : undefined,
-        }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (res.ok && data.success) {
-        setStatus('success')
-        setMessage('Registration successful! Check your email for confirmation.')
-        setFormData({ name: '', email: '', phone: '', school: '', note: '', category: '' })
+          note: formData.note.trim() || '',
+          category: hasCategories ? formData.category.trim() || '' : '',
+        }
+        const payRes = await fetch('/api/bkash/create-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ eventId, clientGeneratedId, registrationData }),
+        })
+        const payData = await payRes.json().catch(() => ({}))
+        if (payRes.ok && payData.bkashURL) {
+          try {
+            sessionStorage.setItem('bkash_eventId', eventId)
+            sessionStorage.setItem('bkash_registrationData', JSON.stringify(registrationData))
+          } catch {
+            /* ignore */
+          }
+          window.location.href = payData.bkashURL
+        } else {
+          setStatus('error')
+          setMessage(payData.error ?? 'Failed to create payment')
+        }
       } else {
-        setStatus('error')
-        setMessage(data.error || `Request failed (${res.status}).`)
+        const res = await fetch('/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            eventId,
+            name: formData.name.trim(),
+            email: formData.email.trim(),
+            phone: formData.phone.trim(),
+            school: formData.school.trim(),
+            note: formData.note.trim() || undefined,
+            category: hasCategories ? formData.category.trim() || undefined : undefined,
+          }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (res.ok && data.success) {
+          setStatus('success')
+          setMessage('Registration successful! Check your email for confirmation.')
+          setFormData({ name: '', email: '', phone: '', school: '', note: '', category: '' })
+        } else {
+          setStatus('error')
+          setMessage(data.error || `Request failed (${res.status}).`)
+        }
       }
     } catch {
       setStatus('error')
@@ -87,6 +121,11 @@ export default function RegistrationForm({ eventId, categories = [] }: Registrat
         </span>
         <h3 className="text-lg font-semibold text-slate-900">Register for this event</h3>
       </div>
+      {isPaid && amount != null && amount > 0 && (
+        <p className="mb-4 rounded-xl bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-800">
+          Registration fee: ৳{amount} BDT (pay via bKash)
+        </p>
+      )}
       <form onSubmit={handleSubmit} className="space-y-4">
         {hasCategories && (
           <div>
@@ -204,10 +243,16 @@ export default function RegistrationForm({ eventId, categories = [] }: Registrat
         )}
         <button
           type="submit"
-          disabled={status === 'loading'}
+          disabled={status === 'loading' || status === 'redirecting'}
           className="w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {status === 'loading' ? 'Registering…' : 'Register'}
+          {status === 'redirecting'
+            ? 'Redirecting to bKash…'
+            : status === 'loading'
+              ? 'Registering…'
+              : isPaid && amount != null && amount > 0
+                ? `Register - ৳${Number(amount) % 1 === 0 ? amount : Number(amount).toFixed(2)} BDT`
+                : 'Register'}
         </button>
       </form>
     </div>

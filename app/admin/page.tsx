@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { cookies } from 'next/headers'
-import { Calendar, Users, ArrowRight, MapPin, Clock } from 'lucide-react'
+import { Calendar, Users, ArrowRight, MapPin, Clock, Banknote } from 'lucide-react'
 import { adminDb } from '@/lib/firebase-admin'
 import { getCurrentAdminProfile } from '@/lib/get-admin'
 import { isEventUpcoming, getFirstEventDate, parseEventDates, formatEventDates } from '@/lib/dateUtils'
@@ -32,6 +32,7 @@ export default async function AdminDashboardPage() {
   let upcomingCount = 0
   let totalEvents = 0
   let totalRegistrations = 0
+  let totalPaymentsCollected = 0
   let nextUpcomingEvent: {
     id: string
     title: string
@@ -63,12 +64,25 @@ export default async function AdminDashboardPage() {
       const upcoming = eventsWithDate.filter((e) => isEventUpcoming(e.date))
       upcomingCount = upcoming.length
 
-      // Parallelize all registration count fetches (fix N+1 bottleneck)
+      // Parallelize all registration count fetches and payment totals
       const regCounts = await Promise.all(
-        eventsSnap.docs.map((doc) => doc.ref.collection('registrations').get().then((snap) => ({ id: doc.id, count: snap.size })))
+        eventsSnap.docs.map(async (doc) => {
+          const data = doc.data()
+          const isPaid = !!data.isPaid && typeof data.amount === 'number' && data.amount > 0
+          const amount = (data.amount as number) ?? 0
+          const snap = await doc.ref.collection('registrations').get()
+          let paidCount = 0
+          if (isPaid) {
+            snap.forEach((d) => {
+              if (d.data().paymentStatus === 'completed') paidCount++
+            })
+          }
+          return { id: doc.id, count: snap.size, paidCount, amount, isPaid }
+        })
       )
       const regCountMap = Object.fromEntries(regCounts.map((r) => [r.id, r.count]))
       totalRegistrations = regCounts.reduce((sum, r) => sum + r.count, 0)
+      totalPaymentsCollected = regCounts.reduce((sum, r) => sum + (r.isPaid ? r.amount * r.paidCount : 0), 0)
 
       if (upcoming.length > 0) {
         const sorted = [...upcoming].sort((a, b) => {
@@ -100,6 +114,7 @@ export default async function AdminDashboardPage() {
     { label: 'Upcoming events', value: upcomingCount, icon: Calendar, color: 'bg-indigo-100 text-indigo-600' },
     { label: 'Total events', value: totalEvents, icon: Calendar, color: 'bg-slate-100 text-slate-600' },
     { label: 'Total registrations', value: totalRegistrations, icon: Users, color: 'bg-emerald-100 text-emerald-600' },
+    { label: 'Total payments collected', value: `৳${totalPaymentsCollected.toLocaleString()}`, icon: Banknote, color: 'bg-amber-100 text-amber-600' },
   ]
 
   return (
@@ -108,7 +123,7 @@ export default async function AdminDashboardPage() {
         {displayName ? `${greeting}, ${displayName}!` : `${greeting}!`}
       </h1>
       <p className="text-slate-600 mb-8">Here’s what’s happening with your events.</p>
-      <div className="grid gap-5 sm:grid-cols-3 mb-10">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-10">
         {stats.map(({ label, value, icon: Icon, color }) => (
           <div
             key={label}
