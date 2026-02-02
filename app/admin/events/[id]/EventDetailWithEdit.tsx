@@ -25,9 +25,14 @@ import type { Event } from '@/types/event'
 import type { Registration } from '@/types/registration'
 import EventLogo from '@/components/EventLogo'
 import { parseEventDates, formatEventDates, isEventUpcoming } from '@/lib/dateUtils'
+import dynamic from 'next/dynamic'
 import ExportRegistrationsButton from './registrations/ExportRegistrationsButton'
-import RegistrationsTableWithSearch from './registrations/RegistrationsTableWithSearch'
 import EventForm from '../EventForm'
+
+const RegistrationsTableWithSearch = dynamic(
+  () => import('./registrations/RegistrationsTableWithSearch'),
+  { loading: () => <div className="h-64 animate-pulse rounded-2xl bg-slate-100" /> }
+)
 import { notifySingleAwardee } from '@/app/admin/actions'
 
 interface EventDetailWithEditProps {

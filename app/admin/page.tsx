@@ -27,9 +27,7 @@ function parseDate(data: unknown): string | string[] | undefined {
 export default async function AdminDashboardPage() {
   const cookieStore = await cookies()
   const token = cookieStore.get('auth-token')?.value
-  const profile = await getCurrentAdminProfile(token)
   const greeting = getGreeting()
-  const displayName = profile?.displayName?.trim() || profile?.email?.split('@')[0] || ''
 
   let upcomingCount = 0
   let totalEvents = 0
@@ -46,9 +44,15 @@ export default async function AdminDashboardPage() {
     registrationCount: number
   } | null = null
 
-  if (adminDb) {
+  // Fetch profile and events in parallel for faster initial load
+  const [profile, eventsSnap] = await Promise.all([
+    getCurrentAdminProfile(token),
+    adminDb ? adminDb.collection('events').get() : Promise.resolve(null),
+  ])
+  const displayName = profile?.displayName?.trim() || profile?.email?.split('@')[0] || ''
+
+  if (eventsSnap) {
     try {
-      const eventsSnap = await adminDb.collection('events').get()
       totalEvents = eventsSnap.size
       const eventsWithDate: { id: string; date: string | string[]; data: Record<string, unknown> }[] = []
       eventsSnap.docs.forEach((d) => {
@@ -59,10 +63,12 @@ export default async function AdminDashboardPage() {
       const upcoming = eventsWithDate.filter((e) => isEventUpcoming(e.date))
       upcomingCount = upcoming.length
 
-      for (const doc of eventsSnap.docs) {
-        const regsSnap = await doc.ref.collection('registrations').get()
-        totalRegistrations += regsSnap.size
-      }
+      // Parallelize all registration count fetches (fix N+1 bottleneck)
+      const regCounts = await Promise.all(
+        eventsSnap.docs.map((doc) => doc.ref.collection('registrations').get().then((snap) => ({ id: doc.id, count: snap.size })))
+      )
+      const regCountMap = Object.fromEntries(regCounts.map((r) => [r.id, r.count]))
+      totalRegistrations = regCounts.reduce((sum, r) => sum + r.count, 0)
 
       if (upcoming.length > 0) {
         const sorted = [...upcoming].sort((a, b) => {
@@ -73,7 +79,6 @@ export default async function AdminDashboardPage() {
           return dA.getTime() - dB.getTime()
         })
         const next = sorted[0]
-        const regsSnap = await eventsSnap.docs.find((d) => d.id === next.id)!.ref.collection('registrations').get()
         nextUpcomingEvent = {
           id: next.id,
           title: String(next.data.title ?? 'Untitled'),
@@ -83,7 +88,7 @@ export default async function AdminDashboardPage() {
           venue: next.data.venue as string | undefined,
           image: next.data.image as string | undefined,
           logo: next.data.logo as string | undefined,
-          registrationCount: regsSnap.size,
+          registrationCount: regCountMap[next.id] ?? 0,
         }
       }
     } catch (e) {

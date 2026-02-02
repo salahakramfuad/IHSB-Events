@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import Image from 'next/image'
 
 const DEFAULT_ACCENT = '220 70% 50%' // fallback hsl (blue-ish)
 
@@ -103,10 +104,13 @@ export default function EventDetailTheme({ imageUrl, children }: EventDetailThem
       <div className="relative w-full">
         {imageUrl ? (
           <div className="relative aspect-[21/9] w-full overflow-hidden bg-slate-200 sm:aspect-[3/1]">
-            <img
+            <Image
               src={imageUrl}
               alt=""
-              className="h-full w-full object-cover"
+              fill
+              sizes="100vw"
+              className="object-cover"
+              priority
             />
             <div
               className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"

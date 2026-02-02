@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Calendar, MapPin, ArrowRight, Search } from 'lucide-react'
 import type { Event } from '@/types/event'
 import EventLogo from './EventLogo'
@@ -47,10 +48,12 @@ function EventCard({ event }: { event: Event }) {
       <div className="relative aspect-[16/10] overflow-hidden bg-amber-100/50">
         {hasImage ? (
           <>
-            <img
+            <Image
               src={event.image!}
               alt={event.title}
-              className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              className="object-cover transition duration-300 group-hover:scale-105"
             />
             <div className="absolute left-3 top-3">
               <EventLogo title={event.title} logo={event.logo} size="sm" className="shadow-md" />

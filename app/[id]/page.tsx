@@ -1,10 +1,23 @@
 import Link from 'next/link'
 import { Metadata } from 'next'
+import dynamic from 'next/dynamic'
 import { Calendar, Clock, MapPin, ArrowLeft, Award, Hash } from 'lucide-react'
 import { getPublicEvent, getPublicEventFeaturedRegistrations } from '@/app/events/actions'
 import { notFound } from 'next/navigation'
-import RegistrationForm from './RegistrationForm'
 import EventLogo from '@/components/EventLogo'
+
+const RegistrationForm = dynamic(() => import('./RegistrationForm'), {
+  loading: () => (
+    <div className="animate-pulse rounded-2xl bg-white/95 p-6 shadow-sm backdrop-blur">
+      <div className="h-8 w-3/4 rounded bg-slate-200" />
+      <div className="mt-4 space-y-3">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="h-10 rounded bg-slate-100" />
+        ))}
+      </div>
+    </div>
+  ),
+})
 import { parseEventDates, formatEventDates, hasEventPassed } from '@/lib/dateUtils'
 import PublicHeader from '@/components/PublicHeader'
 import EventDetailTheme from '@/components/EventDetailTheme'
@@ -84,7 +97,7 @@ export default async function EventDetailPage({
               </section>
             )}
 
-            {featured.length > 0 && (
+            {featured.length > 0 && event.resultsPublishedAt && (
               <section className="rounded-2xl bg-white/95 p-6 shadow-sm backdrop-blur">
                 <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-900">
                   <Award className="h-5 w-5 text-[hsl(var(--event-accent))]" aria-hidden />
@@ -121,7 +134,7 @@ export default async function EventDetailPage({
                         </span>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-900">{a.name}</span>
+                            <span className="font-medium text-slate-900">{a.name || a.registrationId || 'Awardee'}</span>
                             {a.registrationId && (
                               <span className="inline-flex items-center gap-1 text-xs text-slate-500">
                                 <Hash className="h-3 w-3" aria-hidden />

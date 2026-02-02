@@ -1,6 +1,16 @@
+import dynamic from 'next/dynamic'
 import { getAdminEvent, getEventRegistrations, getCurrentAdminProfileInServer } from '@/app/admin/actions'
 import { notFound } from 'next/navigation'
-import EventDetailWithEdit from './EventDetailWithEdit'
+
+const EventDetailWithEdit = dynamic(() => import('./EventDetailWithEdit'), {
+  loading: () => (
+    <div className="animate-pulse space-y-6">
+      <div className="h-8 w-64 rounded bg-slate-200" />
+      <div className="h-48 rounded-2xl bg-slate-100" />
+      <div className="h-96 rounded-2xl bg-slate-100" />
+    </div>
+  ),
+})
 
 export default async function AdminEventDetailPage({
   params,

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { LogIn, ArrowRight } from 'lucide-react'
 
 function LoginForm() {
@@ -15,6 +16,11 @@ function LoginForm() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const adminOnlyMessage = message === 'admin-only'
+
+  // Preload Firebase auth on mount so login is instant when user submits
+  useEffect(() => {
+    void import('firebase/auth').then(() => import('@/lib/firebase').then(({ getFirebaseAuth }) => getFirebaseAuth()))
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -66,7 +72,7 @@ function LoginForm() {
       <div className="w-full max-w-md">
         <div className="rounded-2xl border border-slate-200/80 bg-white p-8 shadow-lg">
           <div className="mb-8 flex items-center justify-center gap-3">
-            <img src="/logo.png" alt="" className="h-12 w-12 rounded-xl object-contain" />
+            <Image src="/logo.png" alt="" width={48} height={48} className="h-12 w-12 rounded-xl object-contain" priority />
             <span className="text-xl font-bold text-slate-900">IHSB Events</span>
           </div>
           <h1 className="text-2xl font-bold text-slate-900 text-center mb-2">Admin sign in</h1>

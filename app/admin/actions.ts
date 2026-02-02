@@ -479,8 +479,9 @@ export async function publishEventResults(
       const data = doc.data()
       const pos = data.position
       if (typeof pos === 'number' && pos >= 1 && pos <= 20) {
+        const regId = data.registrationId ?? doc.id
         awardees.push({
-          name: data.name ?? '',
+          name: (data.name ?? data.fullName ?? data.studentName ?? regId ?? '').trim() || 'Awardee',
           email: data.email ?? '',
           position: pos,
         })
@@ -492,6 +493,16 @@ export async function publishEventResults(
     }
 
     awardees.sort((a, b) => a.position - b.position)
+
+    // Update event first so awardees appear on public page immediately, then send emails in parallel
+    const now = new Date()
+    await adminDb.collection('events').doc(eventId).update({
+      resultsPublishedAt: now,
+      updatedAt: now,
+    })
+    revalidatePath(`/admin/events/${eventId}`)
+    revalidatePath(`/admin/events/${eventId}/registrations`)
+    revalidatePath(`/${eventId}`)
 
     const firstDate = eventData.date
     let dateValue = firstDate
@@ -514,27 +525,19 @@ export async function publishEventResults(
       createdBy: eventData.createdBy ?? '',
     }
 
-    let sent = 0
-    for (const a of awardees) {
-      if (!a.email?.trim()) continue
-      const result = await sendAwardeeResultEmail({
-        to: a.email,
-        name: a.name,
-        event: eventForEmail,
-        position: a.position,
-      })
-      if (result.success) sent++
-    }
-
-    const now = new Date()
-    await adminDb.collection('events').doc(eventId).update({
-      resultsPublishedAt: now,
-      updatedAt: now,
-    })
-
-    revalidatePath(`/admin/events/${eventId}`)
-    revalidatePath(`/admin/events/${eventId}/registrations`)
-    revalidatePath(`/${eventId}`)
+    // Send confirmation emails in parallel
+    const emailPromises = awardees
+      .filter((a) => a.email?.trim())
+      .map((a) =>
+        sendAwardeeResultEmail({
+          to: a.email!,
+          name: a.name,
+          event: eventForEmail,
+          position: a.position,
+        })
+      )
+    const results = await Promise.all(emailPromises)
+    const sent = results.filter((r) => r.success).length
 
     return { success: true, sent }
   } catch (error) {

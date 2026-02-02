@@ -16,7 +16,6 @@
     "date-fns": "^4.1.0",
     "firebase": "^12.7.0",
     "firebase-admin": "^13.6.0",
-    "flowbite-react": "^0.12.15",
     "jspdf": "^4.0.0",
     "lucide-react": "^0.562.0",
     "next": "16.1.1",

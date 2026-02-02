@@ -1,9 +1,14 @@
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { getAdminEvent, getEventRegistrations, getCurrentAdminProfileInServer } from '@/app/admin/actions'
 import ExportRegistrationsButton from './ExportRegistrationsButton'
-import RegistrationsTableWithSearch from './RegistrationsTableWithSearch'
 import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
+
+const RegistrationsTableWithSearch = dynamic(
+  () => import('./RegistrationsTableWithSearch'),
+  { loading: () => <div className="h-64 animate-pulse rounded-2xl bg-slate-100" /> }
+)
 
 export default async function EventRegistrationsPage({
   params,

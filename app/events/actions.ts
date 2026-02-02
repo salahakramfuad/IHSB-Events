@@ -84,11 +84,12 @@ export const getPublicEventFeaturedRegistrations = cache(
         const data = doc.data()
         const pos = data.position
         if (typeof pos === 'number' && pos >= 1 && pos <= 20) {
+          const regId = data.registrationId ?? doc.id
           list.push({
             position: pos,
-            name: data.name ?? '',
+            name: (data.name ?? data.fullName ?? data.studentName ?? regId ?? '').trim() || 'Awardee',
             school: data.school ?? undefined,
-            registrationId: data.registrationId ?? doc.id,
+            registrationId: regId,
           })
         }
       })

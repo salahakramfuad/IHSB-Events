@@ -9,7 +9,7 @@ export default function PublicHeader() {
           href="/"
           className="flex items-center gap-3 text-lg font-semibold text-slate-900 transition hover:text-amber-600"
         >
-          <Image src="/logo.png" alt="IHSB Events" width={36} height={36} className="rounded-lg object-contain" />
+          <Image src="/logo.png" alt="IHSB Events" width={36} height={36} className="rounded-lg object-contain" priority />
           IHSB Events
         </Link>
         <nav>
