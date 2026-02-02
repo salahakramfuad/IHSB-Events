@@ -5,6 +5,24 @@ import Image from 'next/image'
 
 const DEFAULT_ACCENT = '220 70% 50%' // fallback hsl (blue-ish)
 
+function hexToHsl(hex: string): string {
+  const clean = hex.replace('#', '')
+  if (clean.length !== 6 && clean.length !== 3) return DEFAULT_ACCENT
+  let r = 0
+  let g = 0
+  let b = 0
+  if (clean.length === 6) {
+    r = parseInt(clean.slice(0, 2), 16)
+    g = parseInt(clean.slice(2, 4), 16)
+    b = parseInt(clean.slice(4, 6), 16)
+  } else {
+    r = parseInt(clean[0] + clean[0], 16)
+    g = parseInt(clean[1] + clean[1], 16)
+    b = parseInt(clean[2] + clean[2], 16)
+  }
+  return rgbToHsl(r, g, b)
+}
+
 function rgbToHsl(r: number, g: number, b: number): string {
   r /= 255
   g /= 255
@@ -81,21 +99,34 @@ function getDominantHslFromImageUrl(url: string): Promise<string> {
 
 interface EventDetailThemeProps {
   imageUrl: string | null
+  /** Event color theme (hex) - used for accent and light theme; falls back to image extraction */
+  colorTheme?: string | null
   children: React.ReactNode
 }
 
-export default function EventDetailTheme({ imageUrl, children }: EventDetailThemeProps) {
-  const [accentHsl, setAccentHsl] = useState(DEFAULT_ACCENT)
+export default function EventDetailTheme({ imageUrl, colorTheme, children }: EventDetailThemeProps) {
+  const [accentHsl, setAccentHsl] = useState(() => {
+    const hex = colorTheme?.trim()
+    if (hex?.startsWith('#')) return hexToHsl(hex)
+    return DEFAULT_ACCENT
+  })
   const extracted = useRef(false)
 
   useEffect(() => {
+    const hex = colorTheme?.trim()
+    if (hex?.startsWith('#')) {
+      setAccentHsl(hexToHsl(hex))
+      extracted.current = true
+      return
+    }
     if (!imageUrl || extracted.current) return
     extracted.current = true
     getDominantHslFromImageUrl(imageUrl).then(setAccentHsl)
-  }, [imageUrl])
+  }, [imageUrl, colorTheme])
 
   const style = {
     ['--event-accent' as string]: accentHsl,
+    background: 'hsl(var(--event-accent) / 0.06)',
   } as React.CSSProperties
 
   return (

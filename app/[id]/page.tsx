@@ -19,6 +19,7 @@ const RegistrationForm = dynamic(() => import('./RegistrationForm'), {
   ),
 })
 import { parseEventDates, formatEventDates, hasEventPassed } from '@/lib/dateUtils'
+import { hexToLightBg } from '@/lib/colorUtils'
 import PublicHeader from '@/components/PublicHeader'
 import EventDetailTheme from '@/components/EventDetailTheme'
 
@@ -61,11 +62,17 @@ export default async function EventDetailPage({
   const hasPassed = hasEventPassed(event.date)
   const venue = event.venue || event.location || 'TBA'
   const imageUrl = getEventImageUrl(event.image)
+  const pageBg = event.colorTheme?.trim().startsWith('#')
+    ? hexToLightBg(event.colorTheme)
+    : undefined
 
   return (
-    <div className="min-h-screen bg-slate-100/80">
+    <div
+      className={`min-h-screen ${!pageBg ? 'bg-slate-100/80' : ''}`}
+      style={pageBg ? { backgroundColor: pageBg } : undefined}
+    >
       <PublicHeader />
-      <EventDetailTheme imageUrl={imageUrl}>
+      <EventDetailTheme imageUrl={imageUrl} colorTheme={event.colorTheme}>
         <Link
           href="/"
           className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm backdrop-blur transition hover:bg-white"
@@ -76,7 +83,7 @@ export default async function EventDetailPage({
 
         <div className="grid gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-6">
-            <div className="rounded-2xl bg-white/95 p-6 shadow-sm backdrop-blur sm:p-8">
+            <div className="rounded-2xl border border-[hsl(var(--event-accent)/0.15)] bg-white/95 p-6 shadow-sm backdrop-blur sm:p-8">
               <div className="flex items-start gap-4">
                 <EventLogo title={event.title} logo={event.logo} size="lg" />
                 <div className="min-w-0 flex-1">
@@ -89,7 +96,7 @@ export default async function EventDetailPage({
             </div>
 
             {(event.fullDescription || event.description) && (
-              <section className="rounded-2xl bg-white/95 p-6 shadow-sm backdrop-blur">
+              <section className="rounded-2xl border border-[hsl(var(--event-accent)/0.15)] bg-white/95 p-6 shadow-sm backdrop-blur">
                 <h2 className="mb-3 text-lg font-semibold text-slate-900">Overview</h2>
                 <p className="whitespace-pre-wrap text-slate-600 leading-relaxed">
                   {event.fullDescription || event.description}
@@ -98,7 +105,7 @@ export default async function EventDetailPage({
             )}
 
             {featured.length > 0 && (
-              <section className="rounded-2xl bg-white/95 p-6 shadow-sm backdrop-blur">
+              <section className="rounded-2xl border border-[hsl(var(--event-accent)/0.15)] bg-white/95 p-6 shadow-sm backdrop-blur">
                 <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-900">
                   <Award className="h-5 w-5 text-[hsl(var(--event-accent))]" aria-hidden />
                   Awardees
@@ -187,7 +194,7 @@ export default async function EventDetailPage({
               </section>
             )}
 
-            <section className="rounded-2xl bg-white/95 p-6 shadow-sm backdrop-blur">
+            <section className="rounded-2xl border border-[hsl(var(--event-accent)/0.15)] bg-white/95 p-6 shadow-sm backdrop-blur">
               <h2 className="mb-4 text-lg font-semibold text-slate-900">Event details</h2>
               <ul className="space-y-3 text-slate-600">
                 <li className="flex items-center gap-3">
@@ -218,7 +225,7 @@ export default async function EventDetailPage({
 
           <div className="lg:col-span-1">
             {hasPassed ? (
-              <div className="rounded-2xl bg-white/95 p-6 text-center text-slate-600 shadow-sm backdrop-blur">
+              <div className="rounded-2xl border border-[hsl(var(--event-accent)/0.15)] bg-white/95 p-6 text-center text-slate-600 shadow-sm backdrop-blur">
                 <p className="font-medium">This event has passed.</p>
                 <Link
                   href="/"
