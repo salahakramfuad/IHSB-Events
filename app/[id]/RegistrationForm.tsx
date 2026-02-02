@@ -80,6 +80,23 @@ export default function RegistrationForm({ eventId, categories = [] }: Registrat
   const inputClass =
     'w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-[hsl(var(--event-accent))] focus:ring-2 focus:ring-[hsl(var(--event-accent)/0.2)] transition'
 
+  if (status === 'success') {
+    return (
+      <div className="sticky top-24 rounded-2xl border-2 border-emerald-200/80 bg-white/95 p-8 shadow-sm backdrop-blur text-center">
+        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 ring-4 ring-emerald-100/80">
+          <CheckCircle className="h-12 w-12" aria-hidden />
+        </div>
+        <h3 className="text-2xl font-bold text-slate-900">You&apos;re registered!</h3>
+        <p className="mt-3 text-slate-600 leading-relaxed">
+          Check your email for confirmation. We look forward to seeing you at the event.
+        </p>
+        <p className="mt-5 text-sm text-slate-500">
+          Reload the page if you need to register again.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="sticky top-24 rounded-2xl bg-white/95 p-6 shadow-sm backdrop-blur">
       <div className="mb-6 flex items-center gap-3">
@@ -188,18 +205,9 @@ export default function RegistrationForm({ eventId, categories = [] }: Registrat
             placeholder="Any additional information"
           />
         </div>
-        {message && (
-          <div
-            className={`flex items-start gap-2 rounded-xl px-3 py-2.5 text-sm ${
-              status === 'success'
-                ? 'bg-emerald-50 text-emerald-800'
-                : status === 'error'
-                  ? 'bg-red-50 text-red-800'
-                  : 'bg-slate-50 text-slate-600'
-            }`}
-          >
-            {status === 'success' && <CheckCircle className="h-5 w-5 shrink-0" aria-hidden />}
-            {status === 'error' && <AlertCircle className="h-5 w-5 shrink-0" aria-hidden />}
+        {message && status === 'error' && (
+          <div className="flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-800">
+            <AlertCircle className="h-5 w-5 shrink-0" aria-hidden />
             <span>{message}</span>
           </div>
         )}
