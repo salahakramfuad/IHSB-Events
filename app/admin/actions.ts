@@ -117,6 +117,8 @@ export async function createEvent(
     logo?: string
     categories?: string[]
     colorTheme?: string
+    isPaid?: boolean
+    amount?: number
     createdBy?: string
   }
 ): Promise<{ success: boolean; id?: string; error?: string }> {
@@ -141,6 +143,8 @@ export async function createEvent(
       fullDescription: data.fullDescription ?? data.description ?? null,
       categories: categories.length > 0 ? categories : null,
       colorTheme: data.colorTheme?.trim() || null,
+      isPaid: data.isPaid ?? false,
+      amount: data.isPaid && typeof data.amount === 'number' && data.amount > 0 ? data.amount : null,
       createdBy,
       createdByName,
       createdAt: now,
@@ -170,6 +174,8 @@ export async function updateEvent(
     logo: string
     categories: string[]
     colorTheme: string
+    isPaid: boolean
+    amount: number
   }>
 ): Promise<{ success: boolean; error?: string }> {
   if (!adminDb) return { success: false, error: 'Database not available' }
@@ -184,6 +190,11 @@ export async function updateEvent(
       if (k === 'categories') {
         const arr = Array.isArray(v) ? v.filter((c) => String(c).trim()) : []
         update[k] = arr.length > 0 ? arr : null
+      } else if (k === 'isPaid') {
+        update[k] = v
+        if (!v) update.amount = null
+      } else if (k === 'amount') {
+        update[k] = data.isPaid && typeof v === 'number' && v > 0 ? v : null
       } else {
         update[k] = v
       }
@@ -258,6 +269,8 @@ export async function getEventRegistrations(eventId: string): Promise<Registrati
         note: data.note ?? '',
         category: data.category ?? undefined,
         position: typeof pos === 'number' && pos >= 1 && pos <= 20 ? pos : null,
+        paymentStatus: data.paymentStatus ?? undefined,
+        bkashTrxId: data.bkashTrxId ?? undefined,
         resultNotifiedAt: resultNotifiedAt ?? undefined,
         createdAt: createdAt instanceof Date ? createdAt.toISOString() : (createdAt as string) ?? '',
       })
@@ -303,6 +316,38 @@ export async function updateRegistrationPosition(
     return { success: true }
   } catch (error) {
     console.error('Error updating registration position:', error)
+    return { success: false, error: String(error) }
+  }
+}
+
+/** Delete a registration. Super admins only. */
+export async function deleteRegistration(
+  eventId: string,
+  registrationDocId: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!adminDb) return { success: false, error: 'Database not available' }
+  const cookieStore = await cookies()
+  const token = cookieStore.get('auth-token')?.value
+  const profile = await getCurrentAdminProfile(token)
+  if (profile?.role !== 'superAdmin') {
+    return { success: false, error: 'Only super admins can delete registrations.' }
+  }
+  try {
+    const regRef = adminDb
+      .collection('events')
+      .doc(eventId)
+      .collection('registrations')
+      .doc(registrationDocId)
+    const regDoc = await regRef.get()
+    if (!regDoc.exists) return { success: false, error: 'Registration not found' }
+
+    await regRef.delete()
+    revalidatePath(`/admin/events/${eventId}`)
+    revalidatePath(`/admin/events/${eventId}/registrations`)
+    revalidatePath(`/${eventId}`)
+    return { success: true }
+  } catch (error) {
+    console.error('Error deleting registration:', error)
     return { success: false, error: String(error) }
   }
 }

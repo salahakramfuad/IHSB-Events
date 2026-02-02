@@ -20,6 +20,7 @@ import {
   Send,
   CheckCircle,
   Hash,
+  Banknote,
 } from 'lucide-react'
 import type { Event } from '@/types/event'
 import type { Registration } from '@/types/registration'
@@ -501,6 +502,24 @@ export default function EventDetailWithEdit({
               <p className="text-sm text-slate-500">Total registrations</p>
             </div>
           </div>
+          {event.isPaid && typeof event.amount === 'number' && event.amount > 0 && (
+            <div className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white px-6 py-4 shadow-sm">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+                <Banknote className="h-6 w-6" aria-hidden />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900">
+                  ৳{(
+                    event.amount *
+                    registrations.filter((r) => r.paymentStatus === 'completed').length
+                  ).toLocaleString()}
+                </p>
+                <p className="text-sm text-slate-500">
+                  Total collected ({registrations.filter((r) => r.paymentStatus === 'completed').length} paid)
+                </p>
+              </div>
+            </div>
+          )}
           <ExportRegistrationsButton
             eventId={event.id}
             eventTitle={event.title}

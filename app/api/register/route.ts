@@ -52,6 +52,15 @@ export async function POST(request: NextRequest) {
     }
 
     const regsRef = eventRef.collection('registrations')
+
+    const isPaidEvent = !!eventDataRaw.isPaid && typeof eventDataRaw.amount === 'number' && eventDataRaw.amount > 0
+    if (isPaidEvent) {
+      return NextResponse.json(
+        { error: 'This is a paid event. Please use the payment flow.' },
+        { status: 400 }
+      )
+    }
+
     const duplicateSnap = await regsRef.where('email', '==', normalizedEmail).limit(1).get()
     if (!duplicateSnap.empty) {
       return NextResponse.json(

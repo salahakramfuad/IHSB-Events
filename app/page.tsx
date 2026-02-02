@@ -11,13 +11,36 @@ export const metadata: Metadata = {
 
 export const revalidate = 60
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ payment?: string }>
+}) {
   const initialEvents = await getPublicEvents()
+  const { payment: paymentStatus } = await searchParams
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50/70 via-white to-rose-50/50 pb-24 sm:pb-28">
       <PublicHeader />
       <main className="mx-auto max-w-6xl px-4 py-10 sm:py-14">
+        {paymentStatus === 'failed' && (
+          <div className="mb-6 rounded-2xl border-2 border-red-200/80 bg-red-50/95 p-4 text-center">
+            <p className="font-semibold text-red-800">Payment failed</p>
+            <p className="mt-1 text-sm text-red-700">Please try registering again when you visit the event.</p>
+          </div>
+        )}
+        {paymentStatus === 'cancelled' && (
+          <div className="mb-6 rounded-2xl border-2 border-amber-200/80 bg-amber-50/95 p-4 text-center">
+            <p className="font-semibold text-amber-800">Payment cancelled</p>
+            <p className="mt-1 text-sm text-amber-700">You can register again when ready.</p>
+          </div>
+        )}
+        {paymentStatus === 'success' && (
+          <div className="mb-6 rounded-2xl border-2 border-emerald-200/80 bg-emerald-50/95 p-4 text-center">
+            <p className="font-semibold text-emerald-800">Registration complete!</p>
+            <p className="mt-1 text-sm text-emerald-700">A confirmation email has been sent to your inbox.</p>
+          </div>
+        )}
         <p className="mb-10 text-center text-lg text-slate-600 sm:text-xl">
           Discover events and <span className="font-semibold text-amber-600">celebrate</span> with us.
         </p>

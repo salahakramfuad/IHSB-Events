@@ -32,6 +32,8 @@ export default function EventForm({ event }: EventFormProps) {
     venue: event?.venue ?? '',
     image: event?.image ?? '',
     logo: event?.logo ?? '',
+    isPaid: event?.isPaid ?? false,
+    amount: event?.amount ?? 0,
   })
   const [categories, setCategories] = useState<string[]>(
     Array.isArray(event?.categories) ? [...event.categories] : []
@@ -118,6 +120,10 @@ export default function EventForm({ event }: EventFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    if (formData.isPaid && (!formData.amount || formData.amount <= 0)) {
+      setError('For paid events, amount must be greater than 0.')
+      return
+    }
     setLoading(true)
     try {
       if (isEdit && event) {
@@ -133,6 +139,8 @@ export default function EventForm({ event }: EventFormProps) {
           logo: formData.logo || undefined,
           categories: categories.length > 0 ? categories : undefined,
           colorTheme: colorTheme || undefined,
+          isPaid: formData.isPaid || undefined,
+          amount: formData.isPaid ? formData.amount : undefined,
         })
         if (result.success) {
           router.push('/admin/events')
@@ -153,6 +161,8 @@ export default function EventForm({ event }: EventFormProps) {
           logo: formData.logo || undefined,
           categories: categories.length > 0 ? categories : undefined,
           colorTheme: colorTheme || undefined,
+          isPaid: formData.isPaid || undefined,
+          amount: formData.isPaid ? formData.amount : undefined,
         })
         if (result.success && result.id) {
           router.push('/admin/events')
@@ -267,6 +277,50 @@ export default function EventForm({ event }: EventFormProps) {
           onChange={handleChange}
           className={inputClass}
         />
+      </div>
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-slate-700">
+          Payment
+        </label>
+        <p className="mb-2 text-xs text-slate-500">
+          If paid, registrants must complete bKash payment to confirm registration.
+        </p>
+        <div className="flex items-center gap-3">
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={formData.isPaid}
+              onChange={(e) => {
+                setFormData((prev) => ({ ...prev, isPaid: e.target.checked }))
+                setError('')
+              }}
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span className="text-sm font-medium text-slate-700">Paid event</span>
+          </label>
+        </div>
+        {formData.isPaid && (
+          <div className="mt-3">
+            <label htmlFor="amount" className="mb-1.5 block text-sm font-medium text-slate-700">
+              Amount (BDT) <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="amount"
+              name="amount"
+              type="number"
+              min={1}
+              required={formData.isPaid}
+              value={formData.amount || ''}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10)
+                setFormData((prev) => ({ ...prev, amount: isNaN(val) ? 0 : val }))
+                setError('')
+              }}
+              className={inputClass}
+              placeholder="e.g. 500"
+            />
+          </div>
+        )}
       </div>
       <div>
         <label className="mb-1.5 block text-sm font-medium text-slate-700">
