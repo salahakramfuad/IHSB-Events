@@ -98,7 +98,7 @@ export default function RegistrationForm({ eventId, categories = [] }: Registrat
   }
 
   return (
-    <div className="sticky top-24 rounded-2xl border border-[hsl(var(--event-accent)/0.15)] bg-white/95 p-6 shadow-sm backdrop-blur">
+    <div className="sticky top-24 rounded-2xl bg-white/95 p-6 shadow-sm backdrop-blur">
       <div className="mb-6 flex items-center gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[hsl(var(--event-accent)/0.2)] text-[hsl(var(--event-accent))]">
           <UserPlus className="h-5 w-5" aria-hidden />
