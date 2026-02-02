@@ -4,6 +4,105 @@ import type { Event } from '@/types/event'
 import type { Registration } from '@/types/registration'
 import { formatEventDates, parseEventDates } from './dateUtils'
 
+/** PDF color theme: primary bar/badges, accent for registration ID box, other4th for position 4-20 */
+export const PDF_THEMES: Record<string, { primary: number[]; accent: number[]; accentDark: number[]; accentLight: number[]; other4th: number[]; other4thBorder: number[]; other4thText: number[] }> = {
+  indigo: {
+    primary: [79, 70, 229],
+    accent: [59, 130, 246],
+    accentDark: [30, 64, 175],
+    accentLight: [239, 246, 255],
+    other4th: [224, 231, 255],
+    other4thBorder: [129, 140, 248],
+    other4thText: [55, 48, 163],
+  },
+  purple: {
+    primary: [124, 58, 237],
+    accent: [139, 92, 246],
+    accentDark: [91, 33, 182],
+    accentLight: [245, 243, 255],
+    other4th: [237, 233, 254],
+    other4thBorder: [167, 139, 250],
+    other4thText: [91, 33, 182],
+  },
+  blue: {
+    primary: [37, 99, 235],
+    accent: [59, 130, 246],
+    accentDark: [30, 64, 175],
+    accentLight: [239, 246, 255],
+    other4th: [219, 234, 254],
+    other4thBorder: [96, 165, 250],
+    other4thText: [30, 64, 175],
+  },
+  emerald: {
+    primary: [16, 185, 129],
+    accent: [34, 197, 94],
+    accentDark: [22, 101, 52],
+    accentLight: [236, 253, 245],
+    other4th: [209, 250, 229],
+    other4thBorder: [52, 211, 153],
+    other4thText: [6, 78, 59],
+  },
+  amber: {
+    primary: [245, 158, 11],
+    accent: [251, 191, 36],
+    accentDark: [180, 83, 9],
+    accentLight: [255, 251, 235],
+    other4th: [254, 243, 199],
+    other4thBorder: [251, 191, 36],
+    other4thText: [146, 64, 14],
+  },
+  rose: {
+    primary: [244, 63, 94],
+    accent: [251, 113, 133],
+    accentDark: [190, 18, 60],
+    accentLight: [255, 241, 242],
+    other4th: [255, 228, 230],
+    other4thBorder: [251, 113, 133],
+    other4thText: [159, 18, 57],
+  },
+}
+
+const DEFAULT_THEME = PDF_THEMES.indigo
+
+/** Parse hex to RGB [r, g, b] */
+function hexToRgb(hex: string): number[] | null {
+  const m = hex.replace(/^#/, '').match(/^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i)
+  return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : null
+}
+
+/** Lighten RGB by factor 0–1 (1 = white) */
+function lighten(rgb: number[], factor: number): number[] {
+  return rgb.map((c) => Math.round(c + (255 - c) * factor))
+}
+
+/** Darken RGB by factor 0–1 (1 = black) */
+function darken(rgb: number[], factor: number): number[] {
+  return rgb.map((c) => Math.round(c * (1 - factor)))
+}
+
+/** Build theme from a single hex color */
+function themeFromHex(hex: string): typeof DEFAULT_THEME {
+  const primary = hexToRgb(hex)
+  if (!primary) return DEFAULT_THEME
+  return {
+    primary,
+    accent: lighten(primary, 0.15),
+    accentDark: darken(primary, 0.4),
+    accentLight: lighten(primary, 0.92),
+    other4th: lighten(primary, 0.88),
+    other4thBorder: lighten(primary, 0.5),
+    other4thText: darken(primary, 0.35),
+  }
+}
+
+function getTheme(event: Event) {
+  const val = event.colorTheme?.trim()
+  if (!val) return DEFAULT_THEME
+  if (val.startsWith('#')) return themeFromHex(val)
+  const key = val.toLowerCase()
+  return (key && PDF_THEMES[key]) || DEFAULT_THEME
+}
+
 interface GenerateRegistrationPDFProps {
   event: Event
   registration: Registration
@@ -25,13 +124,14 @@ export async function generateRegistrationPDF({
   const pageHeight = doc.internal.pageSize.getHeight()
   const margin = 20
   const contentWidth = pageWidth - 2 * margin
+  const theme = getTheme(event)
 
   // Background
   doc.setFillColor(255, 255, 255)
   doc.rect(0, 0, pageWidth, pageHeight, 'F')
 
   // Top decorative bar
-  doc.setFillColor(79, 70, 229) // Indigo
+  doc.setFillColor(theme.primary[0], theme.primary[1], theme.primary[2])
   doc.rect(0, 0, pageWidth, 6, 'F')
 
   let yPos = 18
@@ -64,7 +164,7 @@ export async function generateRegistrationPDF({
   // If no logo loaded, draw initials
   if (!logoLoaded) {
     // Draw circular background
-    doc.setFillColor(79, 70, 229) // Indigo
+    doc.setFillColor(theme.primary[0], theme.primary[1], theme.primary[2])
     doc.circle(margin + logoSize / 2, yPos + logoSize / 2, logoSize / 2, 'F')
     
     // Draw initials
@@ -102,7 +202,7 @@ export async function generateRegistrationPDF({
   yPos += 10
 
   // Registration Details Badge
-  doc.setFillColor(79, 70, 229) // Indigo
+  doc.setFillColor(theme.primary[0], theme.primary[1], theme.primary[2])
   doc.roundedRect(margin, yPos, 50, 8, 2, 2, 'F')
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
@@ -111,19 +211,19 @@ export async function generateRegistrationPDF({
   yPos += 15
 
   // Registration ID - Large highlighted box
-  doc.setFillColor(239, 246, 255) // Blue-50
-  doc.setDrawColor(59, 130, 246) // Blue-500
+  doc.setFillColor(theme.accentLight[0], theme.accentLight[1], theme.accentLight[2])
+  doc.setDrawColor(theme.accent[0], theme.accent[1], theme.accent[2])
   doc.setLineWidth(1)
   doc.roundedRect(margin, yPos, contentWidth, 20, 3, 3, 'FD')
   
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
-  doc.setTextColor(59, 130, 246) // Blue-500
+  doc.setTextColor(theme.accent[0], theme.accent[1], theme.accent[2])
   doc.text('Registration ID', margin + 5, yPos + 6)
   
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(18)
-  doc.setTextColor(30, 64, 175) // Blue-800
+  doc.setTextColor(theme.accentDark[0], theme.accentDark[1], theme.accentDark[2])
   doc.text(registration.registrationId || registration.id, margin + 5, yPos + 15)
   
   yPos += 28
@@ -131,7 +231,7 @@ export async function generateRegistrationPDF({
   // Participant Information Section
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
-  doc.setTextColor(79, 70, 229) // Indigo
+  doc.setTextColor(theme.primary[0], theme.primary[1], theme.primary[2])
   doc.text('PARTICIPANT INFORMATION', margin, yPos)
   yPos += 8
 
@@ -173,7 +273,7 @@ export async function generateRegistrationPDF({
   // Event Information Section
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
-  doc.setTextColor(79, 70, 229) // Indigo
+  doc.setTextColor(theme.primary[0], theme.primary[1], theme.primary[2])
   doc.text('EVENT INFORMATION', margin, yPos)
   yPos += 8
 
@@ -210,9 +310,9 @@ export async function generateRegistrationPDF({
       badgeBorder = [251, 146, 60]
       badgeText = [154, 52, 18]
     } else {
-      badgeBg = [224, 231, 255]
-      badgeBorder = [129, 140, 248]
-      badgeText = [55, 48, 163]
+      badgeBg = theme.other4th
+      badgeBorder = theme.other4thBorder
+      badgeText = theme.other4thText
     }
     
     doc.setFillColor(badgeBg[0], badgeBg[1], badgeBg[2])
@@ -277,7 +377,7 @@ export async function generateRegistrationPDF({
   doc.text(`Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, pageWidth / 2, footerY + 5, { align: 'center' })
 
   // Bottom decorative bar
-  doc.setFillColor(79, 70, 229)
+  doc.setFillColor(theme.primary[0], theme.primary[1], theme.primary[2])
   doc.rect(0, pageHeight - 6, pageWidth, 6, 'F')
 
   // Save the PDF
@@ -307,6 +407,7 @@ export async function generateAllRegistrationsPDF({
   const pageHeight = doc.internal.pageSize.getHeight()
   const margin = 20
   const contentWidth = pageWidth - 2 * margin
+  const theme = getTheme(event)
 
   // Load logo once
   let logoData: string | null = null
@@ -367,7 +468,7 @@ export async function generateAllRegistrationsPDF({
     doc.rect(0, 0, pageWidth, pageHeight, 'F')
 
     // Top decorative bar
-    doc.setFillColor(79, 70, 229)
+    doc.setFillColor(theme.primary[0], theme.primary[1], theme.primary[2])
     doc.rect(0, 0, pageWidth, 6, 'F')
 
     let yPos = 18
@@ -388,7 +489,7 @@ export async function generateAllRegistrationsPDF({
     // If no logo loaded, draw initials
     if (!logoLoaded) {
       // Draw circular background
-      doc.setFillColor(79, 70, 229) // Indigo
+      doc.setFillColor(theme.primary[0], theme.primary[1], theme.primary[2])
       doc.circle(margin + logoSize / 2, yPos + logoSize / 2, logoSize / 2, 'F')
       
       // Draw initials
@@ -425,7 +526,7 @@ export async function generateAllRegistrationsPDF({
     yPos += 10
 
     // Registration Details Badge
-    doc.setFillColor(79, 70, 229)
+    doc.setFillColor(theme.primary[0], theme.primary[1], theme.primary[2])
     doc.roundedRect(margin, yPos, 50, 8, 2, 2, 'F')
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
@@ -435,19 +536,19 @@ export async function generateAllRegistrationsPDF({
     yPos += 15
 
     // Registration ID box
-    doc.setFillColor(239, 246, 255)
-    doc.setDrawColor(59, 130, 246)
+    doc.setFillColor(theme.accentLight[0], theme.accentLight[1], theme.accentLight[2])
+    doc.setDrawColor(theme.accent[0], theme.accent[1], theme.accent[2])
     doc.setLineWidth(1)
     doc.roundedRect(margin, yPos, contentWidth, 20, 3, 3, 'FD')
     
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(10)
-    doc.setTextColor(59, 130, 246)
+    doc.setTextColor(theme.accent[0], theme.accent[1], theme.accent[2])
     doc.text('Registration ID', margin + 5, yPos + 6)
     
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(18)
-    doc.setTextColor(30, 64, 175)
+    doc.setTextColor(theme.accentDark[0], theme.accentDark[1], theme.accentDark[2])
     doc.text(registration.registrationId || registration.id, margin + 5, yPos + 15)
     
     yPos += 28
@@ -455,7 +556,7 @@ export async function generateAllRegistrationsPDF({
     // Participant Information
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(11)
-    doc.setTextColor(79, 70, 229)
+    doc.setTextColor(theme.primary[0], theme.primary[1], theme.primary[2])
     doc.text('PARTICIPANT INFORMATION', margin, yPos)
     yPos += 8
 
@@ -494,7 +595,7 @@ export async function generateAllRegistrationsPDF({
     // Event Information
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(11)
-    doc.setTextColor(79, 70, 229)
+    doc.setTextColor(theme.primary[0], theme.primary[1], theme.primary[2])
     doc.text('EVENT INFORMATION', margin, yPos)
     yPos += 8
 
@@ -524,21 +625,21 @@ export async function generateAllRegistrationsPDF({
         badgeBg = [254, 215, 170]
         badgeBorder = [251, 146, 60]
         badgeText = [154, 52, 18]
-      } else {
-        badgeBg = [224, 231, 255]
-        badgeBorder = [129, 140, 248]
-        badgeText = [55, 48, 163]
-      }
-      
-      doc.setFillColor(badgeBg[0], badgeBg[1], badgeBg[2])
-      doc.setDrawColor(badgeBorder[0], badgeBorder[1], badgeBorder[2])
-      doc.setLineWidth(1.5)
-      doc.roundedRect(margin, yPos, 70, 14, 3, 3, 'FD')
-      
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(12)
-      doc.setTextColor(badgeText[0], badgeText[1], badgeText[2])
-      doc.text(`${positionLabel} Position`, margin + 35, yPos + 9.5, { align: 'center' })
+    } else {
+      badgeBg = theme.other4th
+      badgeBorder = theme.other4thBorder
+      badgeText = theme.other4thText
+    }
+    
+    doc.setFillColor(badgeBg[0], badgeBg[1], badgeBg[2])
+    doc.setDrawColor(badgeBorder[0], badgeBorder[1], badgeBorder[2])
+    doc.setLineWidth(1.5)
+    doc.roundedRect(margin, yPos, 70, 14, 3, 3, 'FD')
+    
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(12)
+    doc.setTextColor(badgeText[0], badgeText[1], badgeText[2])
+    doc.text(`${positionLabel} Position`, margin + 35, yPos + 9.5, { align: 'center' })
       
       yPos += 22
     }
@@ -577,9 +678,9 @@ export async function generateAllRegistrationsPDF({
     doc.text('Official Registration Certificate | International Hope School Bangladesh', pageWidth / 2, footerY, { align: 'center' })
     doc.text(`Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, pageWidth / 2, footerY + 5, { align: 'center' })
 
-    // Bottom bar
-    doc.setFillColor(79, 70, 229)
-    doc.rect(0, pageHeight - 6, pageWidth, 6, 'F')
+  // Bottom bar
+  doc.setFillColor(theme.primary[0], theme.primary[1], theme.primary[2])
+  doc.rect(0, pageHeight - 6, pageWidth, 6, 'F')
   }
 
   // Save the combined PDF

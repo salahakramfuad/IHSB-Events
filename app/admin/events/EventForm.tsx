@@ -37,6 +37,9 @@ export default function EventForm({ event }: EventFormProps) {
     Array.isArray(event?.categories) ? [...event.categories] : []
   )
   const [categoryInput, setCategoryInput] = useState('')
+  const [colorTheme, setColorTheme] = useState(
+    event?.colorTheme?.startsWith('#') ? event.colorTheme : '#4f46e5'
+  )
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -129,6 +132,7 @@ export default function EventForm({ event }: EventFormProps) {
           image: formData.image || undefined,
           logo: formData.logo || undefined,
           categories: categories.length > 0 ? categories : undefined,
+          colorTheme: colorTheme || undefined,
         })
         if (result.success) {
           router.push('/admin/events')
@@ -148,6 +152,7 @@ export default function EventForm({ event }: EventFormProps) {
           image: formData.image || undefined,
           logo: formData.logo || undefined,
           categories: categories.length > 0 ? categories : undefined,
+          colorTheme: colorTheme || undefined,
         })
         if (result.success && result.id) {
           router.push('/admin/events')
@@ -262,6 +267,49 @@ export default function EventForm({ event }: EventFormProps) {
           onChange={handleChange}
           className={inputClass}
         />
+      </div>
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-slate-700">
+          PDF color theme
+        </label>
+        <p className="mb-2 text-xs text-slate-500">
+          Color applied to registration PDFs (bars, badges, accents). Choose any color.
+        </p>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <input
+              type="color"
+              value={colorTheme.startsWith('#') ? colorTheme : '#4f46e5'}
+              onChange={(e) => setColorTheme(e.target.value)}
+              className="h-10 w-14 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+              title="Pick a color"
+            />
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-slate-700">Custom color</span>
+              <input
+                type="text"
+                value={colorTheme}
+                onChange={(e) => setColorTheme(e.target.value)}
+                placeholder="#4f46e5"
+                className="w-28 rounded-lg border border-slate-200 px-2 py-1.5 font-mono text-sm text-slate-900"
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {['#4f46e5', '#7c3aed', '#2563eb', '#059669', '#d97706', '#e11d48'].map((hex) => (
+              <button
+                key={hex}
+                type="button"
+                onClick={() => setColorTheme(hex)}
+                className={`h-9 w-9 rounded-xl border-2 transition ${
+                  colorTheme === hex ? 'border-slate-600 scale-110' : 'border-slate-200 hover:border-slate-400'
+                }`}
+                style={{ backgroundColor: hex }}
+                title={hex}
+              />
+            ))}
+          </div>
+        </div>
       </div>
       <div>
         <label className="mb-1.5 block text-sm font-medium text-slate-700">

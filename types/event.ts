@@ -15,6 +15,8 @@ export type Event = {
   tags?: string[]
   /** Optional categories; if set, registrants must choose one when registering */
   categories?: string[]
+  /** Color theme for registration PDFs: indigo, purple, blue, emerald, amber, rose */
+  colorTheme?: string
   /** ISO date when awardee results were published; null = not published */
   resultsPublishedAt?: string | null
   createdAt: Date | string

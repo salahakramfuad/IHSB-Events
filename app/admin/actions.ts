@@ -116,6 +116,7 @@ export async function createEvent(
     image?: string
     logo?: string
     categories?: string[]
+    colorTheme?: string
     createdBy?: string
   }
 ): Promise<{ success: boolean; id?: string; error?: string }> {
@@ -139,6 +140,7 @@ export async function createEvent(
       logo: data.logo ?? null,
       fullDescription: data.fullDescription ?? data.description ?? null,
       categories: categories.length > 0 ? categories : null,
+      colorTheme: data.colorTheme?.trim() || null,
       createdBy,
       createdByName,
       createdAt: now,
@@ -167,6 +169,7 @@ export async function updateEvent(
     image: string
     logo: string
     categories: string[]
+    colorTheme: string
   }>
 ): Promise<{ success: boolean; error?: string }> {
   if (!adminDb) return { success: false, error: 'Database not available' }
