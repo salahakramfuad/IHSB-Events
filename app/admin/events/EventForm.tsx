@@ -6,12 +6,92 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { createEvent, updateEvent } from '@/app/admin/actions'
 import type { Event } from '@/types/event'
-import { Upload, X, Plus } from 'lucide-react'
+import {
+  Upload,
+  X,
+  Plus,
+  FileText,
+  CalendarDays,
+  MapPin,
+  ImageIcon,
+  CreditCard,
+  Palette,
+  Tag,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react'
 import DatePicker from './DatePicker'
 import TimePicker from './TimePicker'
 
 interface EventFormProps {
   event?: Event | null
+}
+
+const inputClass =
+  'w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition'
+
+function Section({
+  title,
+  icon: Icon,
+  children,
+  defaultOpen = true,
+}: {
+  title: string
+  icon: React.ComponentType<{ className?: string }>
+  children: React.ReactNode
+  defaultOpen?: boolean
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen)
+  return (
+    <section className="rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-slate-50/50 transition-colors"
+      >
+        <span className="flex items-center gap-3 text-base font-semibold text-slate-900">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+            <Icon className="h-4 w-4" />
+          </span>
+          {title}
+        </span>
+        {isOpen ? (
+          <ChevronUp className="h-5 w-5 text-slate-400" />
+        ) : (
+          <ChevronDown className="h-5 w-5 text-slate-400" />
+        )}
+      </button>
+      {isOpen && <div className="border-t border-slate-100 px-5 py-5">{children}</div>}
+    </section>
+  )
+}
+
+function FormField({
+  label,
+  htmlFor,
+  required,
+  hint,
+  children,
+}: {
+  label: string
+  htmlFor?: string
+  required?: boolean
+  hint?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label
+        htmlFor={htmlFor}
+        className="block text-sm font-medium text-slate-700"
+      >
+        {label}
+        {required && <span className="ml-0.5 text-red-500">*</span>}
+      </label>
+      {hint && <p className="text-xs text-slate-500">{hint}</p>}
+      {children}
+    </div>
+  )
 }
 
 export default function EventForm({ event }: EventFormProps) {
@@ -26,7 +106,8 @@ export default function EventForm({ event }: EventFormProps) {
     title: event?.title ?? '',
     description: event?.description ?? '',
     fullDescription: event?.fullDescription ?? '',
-    date: Array.isArray(event?.date) ? event.date[0] : (event?.date as string) ?? '',
+    date:
+      Array.isArray(event?.date) ? event.date[0] : (event?.date as string) ?? '',
     time: event?.time ?? '',
     location: event?.location ?? '',
     venue: event?.venue ?? '',
@@ -58,7 +139,10 @@ export default function EventForm({ event }: EventFormProps) {
     try {
       const form = new FormData()
       form.append('file', file)
-      const res = await fetch('/api/upload-image', { method: 'POST', body: form })
+      const res = await fetch('/api/upload-image', {
+        method: 'POST',
+        body: form,
+      })
       const data = await res.json().catch(() => ({}))
       if (res.ok && data.url) {
         setFormData((prev) => ({ ...prev, image: data.url }))
@@ -86,7 +170,10 @@ export default function EventForm({ event }: EventFormProps) {
     try {
       const form = new FormData()
       form.append('file', file)
-      const res = await fetch('/api/upload-image', { method: 'POST', body: form })
+      const res = await fetch('/api/upload-image', {
+        method: 'POST',
+        body: form,
+      })
       const data = await res.json().catch(() => ({}))
       if (res.ok && data.url) {
         setFormData((prev) => ({ ...prev, logo: data.url }))
@@ -176,376 +263,439 @@ export default function EventForm({ event }: EventFormProps) {
     }
   }
 
-  const inputClass =
-    'w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition'
-
   return (
-    <form onSubmit={handleSubmit} className="max-w-2xl space-y-5">
-      <div>
-        <label htmlFor="title" className="mb-1.5 block text-sm font-medium text-slate-700">
-          Title <span className="text-red-500">*</span>
-        </label>
-        <input
-          id="title"
-          name="title"
-          type="text"
-          required
-          value={formData.title}
-          onChange={handleChange}
-          className={inputClass}
-        />
-      </div>
-      <div>
-        <label htmlFor="description" className="mb-1.5 block text-sm font-medium text-slate-700">
-          Short description <span className="text-red-500">*</span>
-        </label>
-        <input
-          id="description"
-          name="description"
-          type="text"
-          required
-          value={formData.description}
-          onChange={handleChange}
-          className={inputClass}
-        />
-      </div>
-      <div>
-        <label htmlFor="fullDescription" className="mb-1.5 block text-sm font-medium text-slate-700">
-          Full description
-        </label>
-        <textarea
-          id="fullDescription"
-          name="fullDescription"
-          rows={4}
-          value={formData.fullDescription}
-          onChange={handleChange}
-          className={inputClass}
-        />
-      </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">
-            Date <span className="text-red-500">*</span>
-          </label>
-          <DatePicker
-            value={formData.date}
-            onChange={(date) => {
-              setFormData((prev) => ({ ...prev, date }))
-              setError('')
-            }}
-            disabled={loading}
-            required
-          />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">
-            Time
-          </label>
-          <TimePicker
-            value={formData.time}
-            onChange={(time) => {
-              setFormData((prev) => ({ ...prev, time }))
-              setError('')
-            }}
-            disabled={loading}
-          />
-        </div>
-      </div>
-      <div>
-        <label htmlFor="location" className="mb-1.5 block text-sm font-medium text-slate-700">
-          Location <span className="text-red-500">*</span>
-        </label>
-        <input
-          id="location"
-          name="location"
-          type="text"
-          required
-          value={formData.location}
-          onChange={handleChange}
-          className={inputClass}
-        />
-      </div>
-      <div>
-        <label htmlFor="venue" className="mb-1.5 block text-sm font-medium text-slate-700">
-          Venue
-        </label>
-        <input
-          id="venue"
-          name="venue"
-          type="text"
-          value={formData.venue}
-          onChange={handleChange}
-          className={inputClass}
-        />
-      </div>
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-slate-700">
-          Payment
-        </label>
-        <p className="mb-2 text-xs text-slate-500">
-          If paid, registrants must complete bKash payment to confirm registration.
-        </p>
-        <div className="flex items-center gap-3">
-          <label className="flex cursor-pointer items-center gap-2">
-            <input
-              type="checkbox"
-              checked={formData.isPaid}
-              onChange={(e) => {
-                setFormData((prev) => ({ ...prev, isPaid: e.target.checked }))
-                setError('')
-              }}
-              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-            />
-            <span className="text-sm font-medium text-slate-700">Paid event</span>
-          </label>
-        </div>
-        {formData.isPaid && (
-          <div className="mt-3">
-            <label htmlFor="amount" className="mb-1.5 block text-sm font-medium text-slate-700">
-              Amount (BDT) <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="amount"
-              name="amount"
-              type="number"
-              min={1}
-              required={formData.isPaid}
-              value={formData.amount || ''}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10)
-                setFormData((prev) => ({ ...prev, amount: isNaN(val) ? 0 : val }))
-                setError('')
-              }}
-              className={inputClass}
-              placeholder="e.g. 500"
-            />
-          </div>
-        )}
-      </div>
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-slate-700">
-          PDF color theme
-        </label>
-        <p className="mb-2 text-xs text-slate-500">
-          Color applied to registration PDFs (bars, badges, accents). Choose any color.
-        </p>
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
-            <input
-              type="color"
-              value={colorTheme.startsWith('#') ? colorTheme : '#4f46e5'}
-              onChange={(e) => setColorTheme(e.target.value)}
-              className="h-10 w-14 cursor-pointer rounded-lg border-0 bg-transparent p-0"
-              title="Pick a color"
-            />
-            <div className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-slate-700">Custom color</span>
+    <form onSubmit={handleSubmit} className="pb-32">
+      <div className="max-w-2xl space-y-6">
+        {/* Basic Info */}
+        <Section title="Basic Information" icon={FileText}>
+          <div className="space-y-5">
+            <FormField label="Event title" htmlFor="title" required>
               <input
+                id="title"
+                name="title"
                 type="text"
-                value={colorTheme}
-                onChange={(e) => setColorTheme(e.target.value)}
-                placeholder="#4f46e5"
-                className="w-28 rounded-lg border border-slate-200 px-2 py-1.5 font-mono text-sm text-slate-900"
+                required
+                value={formData.title}
+                onChange={handleChange}
+                className={inputClass}
+                placeholder="e.g. IHSB Annual Sports Day 2025"
               />
+            </FormField>
+            <FormField
+              label="Short description"
+              htmlFor="description"
+              required
+              hint="Brief summary shown in event listings (1-2 sentences)"
+            >
+              <input
+                id="description"
+                name="description"
+                type="text"
+                required
+                value={formData.description}
+                onChange={handleChange}
+                className={inputClass}
+                placeholder="e.g. Join us for our annual sports competition"
+              />
+            </FormField>
+            <FormField
+              label="Full description"
+              htmlFor="fullDescription"
+              hint="Optional. Longer details shown on the event page"
+            >
+              <textarea
+                id="fullDescription"
+                name="fullDescription"
+                rows={4}
+                value={formData.fullDescription}
+                onChange={handleChange}
+                className={inputClass}
+                placeholder="Add event details, schedule, rules, etc."
+              />
+            </FormField>
+          </div>
+        </Section>
+
+        {/* Date & Time */}
+        <Section title="Date & Time" icon={CalendarDays}>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <FormField label="Date" required>
+              <DatePicker
+                value={formData.date}
+                onChange={(date) => {
+                  setFormData((prev) => ({ ...prev, date }))
+                  setError('')
+                }}
+                disabled={loading}
+                required
+              />
+            </FormField>
+            <FormField label="Time" hint="Event start and end time">
+              <TimePicker
+                value={formData.time}
+                onChange={(time) => {
+                  setFormData((prev) => ({ ...prev, time }))
+                  setError('')
+                }}
+                disabled={loading}
+              />
+            </FormField>
+          </div>
+        </Section>
+
+        {/* Location */}
+        <Section title="Location" icon={MapPin}>
+          <div className="space-y-5">
+            <FormField label="Location" htmlFor="location" required>
+              <input
+                id="location"
+                name="location"
+                type="text"
+                required
+                value={formData.location}
+                onChange={handleChange}
+                className={inputClass}
+                placeholder="e.g. Dhaka, Bangladesh"
+              />
+            </FormField>
+            <FormField
+              label="Venue"
+              htmlFor="venue"
+              hint="Specific venue or building name"
+            >
+              <input
+                id="venue"
+                name="venue"
+                type="text"
+                value={formData.venue}
+                onChange={handleChange}
+                className={inputClass}
+                placeholder="e.g. IHSB Main Hall"
+              />
+            </FormField>
+          </div>
+        </Section>
+
+        {/* Media */}
+        <Section title="Media" icon={ImageIcon} defaultOpen={!!(formData.image || formData.logo)}>
+          <div className="space-y-6">
+            <div>
+              <FormField
+                label="Cover image"
+                hint="Main banner image for the event (JPEG, PNG, WebP, GIF)"
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleFileChange}
+                  disabled={uploading}
+                  className="sr-only"
+                  id="event-image-file"
+                  aria-label="Upload event image"
+                />
+                {formData.image ? (
+                  <div className="space-y-3">
+                    <div className="relative inline-block overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                      <Image
+                        src={formData.image}
+                        alt="Event"
+                        width={320}
+                        height={180}
+                        className="h-40 w-auto max-w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={clearImage}
+                        className="absolute right-2 top-2 rounded-full bg-slate-900/60 p-1.5 text-white hover:bg-slate-900 transition-colors"
+                        aria-label="Remove image"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <label
+                      htmlFor="event-image-file"
+                      className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      <Upload className="h-4 w-4" />
+                      {uploading ? 'Uploading…' : 'Replace image'}
+                    </label>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor="event-image-file"
+                    className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 py-10 text-slate-500 transition hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-600 disabled:opacity-50"
+                  >
+                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-200/60">
+                      <ImageIcon className="h-6 w-6 text-slate-400" />
+                    </div>
+                    <span className="text-sm font-medium">
+                      {uploading ? 'Uploading…' : 'Click to upload or drag and drop'}
+                    </span>
+                    <span className="mt-1 text-xs">JPEG, PNG, WebP, GIF · max 5MB</span>
+                  </label>
+                )}
+              </FormField>
+            </div>
+
+            <div>
+              <FormField
+                label="Event logo"
+                hint="Square logo. Fallback: event initials (e.g. SC for Super Cup)"
+              >
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleLogoChange}
+                  disabled={uploading}
+                  className="sr-only"
+                  id="event-logo-file"
+                  aria-label="Upload event logo"
+                />
+                {formData.logo ? (
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="relative inline-block overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                      <Image
+                        src={formData.logo}
+                        alt="Event logo"
+                        width={80}
+                        height={80}
+                        className="h-20 w-20 object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={clearLogo}
+                        className="absolute right-1 top-1 rounded-full bg-slate-900/60 p-1 text-white hover:bg-slate-900 transition-colors"
+                        aria-label="Remove logo"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                    <label
+                      htmlFor="event-logo-file"
+                      className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      <Upload className="h-4 w-4" />
+                      {uploading ? 'Uploading…' : 'Replace logo'}
+                    </label>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor="event-logo-file"
+                    className="flex cursor-pointer items-center gap-4 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-5 py-4 text-slate-500 transition hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-600 disabled:opacity-50"
+                  >
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-amber-100 font-bold text-amber-700">
+                      {formData.title.trim()
+                        ? formData.title.trim().split(/\s+/).filter(Boolean).length >= 2
+                          ? formData.title
+                              .trim()
+                              .split(/\s+/)
+                              .map((w) => w[0])
+                              .slice(0, 2)
+                              .join('')
+                              .toUpperCase()
+                          : formData.title.trim().slice(0, 2).toUpperCase()
+                        : '?'}
+                    </div>
+                    <span className="text-sm font-medium">
+                      {uploading ? 'Uploading…' : 'Upload logo (optional)'}
+                    </span>
+                  </label>
+                )}
+              </FormField>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {['#4f46e5', '#7c3aed', '#2563eb', '#059669', '#d97706', '#e11d48'].map((hex) => (
-              <button
-                key={hex}
-                type="button"
-                onClick={() => setColorTheme(hex)}
-                className={`h-9 w-9 rounded-xl border-2 transition ${
-                  colorTheme === hex ? 'border-slate-600 scale-110' : 'border-slate-200 hover:border-slate-400'
-                }`}
-                style={{ backgroundColor: hex }}
-                title={hex}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-slate-700">
-          Categories
-        </label>
-        <p className="mb-2 text-xs text-slate-500">
-          If you add categories, registrants must choose one when registering (e.g. Photography, Essay, Debate).
-        </p>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={categoryInput}
-            onChange={(e) => setCategoryInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCategory())}
-            placeholder="e.g. Photography"
-            className={inputClass}
-            aria-label="New category name"
-          />
-          <button
-            type="button"
-            onClick={addCategory}
-            className="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-          >
-            <Plus className="h-5 w-5" aria-hidden />
-          </button>
-        </div>
-        {categories.length > 0 && (
-          <ul className="mt-2 flex flex-wrap gap-2">
-            {categories.map((name) => (
-              <li
-                key={name}
-                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700"
+        </Section>
+
+        {/* Registration & Payment */}
+        <Section title="Registration & Payment" icon={CreditCard}>
+          <div className="space-y-5">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={formData.isPaid}
+                  onChange={(e) => {
+                    setFormData((prev) => ({ ...prev, isPaid: e.target.checked }))
+                    setError('')
+                  }}
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span>
+                  <span className="text-sm font-medium text-slate-900">
+                    Paid event
+                  </span>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Registrants will pay via bKash to confirm their registration.
+                  </p>
+                </span>
+              </label>
+            </div>
+            {formData.isPaid && (
+              <FormField
+                label="Amount (BDT)"
+                htmlFor="amount"
+                required
+                hint="Registration fee in Bangladeshi Taka"
               >
-                {name}
+                <input
+                  id="amount"
+                  name="amount"
+                  type="number"
+                  min={1}
+                  required={formData.isPaid}
+                  value={formData.amount || ''}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10)
+                    setFormData((prev) => ({
+                      ...prev,
+                      amount: isNaN(val) ? 0 : val,
+                    }))
+                    setError('')
+                  }}
+                  className={inputClass}
+                  placeholder="e.g. 500"
+                />
+              </FormField>
+            )}
+          </div>
+        </Section>
+
+        {/* Categories */}
+        <Section title="Categories" icon={Tag} defaultOpen={categories.length > 0}>
+          <div className="space-y-4">
+            <FormField
+              label="Registration categories"
+              hint="Registrants pick one (e.g. Photography, Essay, Debate). Leave empty for no categories."
+            >
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={categoryInput}
+                  onChange={(e) => setCategoryInput(e.target.value)}
+                  onKeyDown={(e) =>
+                    e.key === 'Enter' && (e.preventDefault(), addCategory())
+                  }
+                  placeholder="e.g. Photography"
+                  className={inputClass}
+                  aria-label="New category name"
+                />
                 <button
                   type="button"
-                  onClick={() => removeCategory(name)}
-                  className="rounded-full p-0.5 text-slate-500 hover:bg-slate-200 hover:text-slate-800"
-                  aria-label={`Remove category ${name}`}
+                  onClick={addCategory}
+                  className="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-700 transition hover:bg-slate-50"
+                  title="Add category"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <Plus className="h-5 w-5" />
                 </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-slate-700">
-          Event image
-        </label>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          onChange={handleFileChange}
-          disabled={uploading}
-          className="sr-only"
-          id="event-image-file"
-          aria-label="Upload event image"
-        />
-        {formData.image ? (
-          <div className="space-y-2">
-            <div className="relative inline-block rounded-xl border border-slate-200 overflow-hidden bg-slate-100">
-              <Image
-                src={formData.image}
-                alt="Event"
-                width={320}
-                height={180}
-                className="h-40 w-auto object-cover"
-              />
-              <button
-                type="button"
-                onClick={clearImage}
-                className="absolute right-2 top-2 rounded-full bg-slate-900/60 p-1.5 text-white hover:bg-slate-900"
-                aria-label="Remove image"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <label
-              htmlFor="event-image-file"
-              className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            >
-              <Upload className="h-4 w-4" />
-              {uploading ? 'Uploading…' : 'Replace image'}
-            </label>
+              </div>
+            </FormField>
+            {categories.length > 0 && (
+              <ul className="flex flex-wrap gap-2">
+                {categories.map((name) => (
+                  <li
+                    key={name}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700"
+                  >
+                    {name}
+                    <button
+                      type="button"
+                      onClick={() => removeCategory(name)}
+                      className="rounded-full p-0.5 text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
+                      aria-label={`Remove category ${name}`}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-        ) : (
-          <label
-            htmlFor="event-image-file"
-            className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 py-8 text-slate-500 transition hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-600 disabled:opacity-50"
+        </Section>
+
+        {/* Appearance */}
+        <Section title="Appearance" icon={Palette} defaultOpen={false}>
+          <FormField
+            label="PDF color theme"
+            hint="Color for registration PDFs (bars, badges)"
           >
-            <Upload className="mb-2 h-10 w-10" />
-            <span className="text-sm font-medium">
-              {uploading ? 'Uploading…' : 'Click to upload image (JPEG, PNG, WebP, GIF, max 5MB)'}
-            </span>
-          </label>
-        )}
-        <p className="mt-1.5 text-xs text-slate-500">
-          Image is stored in Cloudinary. Optional for events.
-        </p>
-      </div>
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-slate-700">
-          Event logo
-        </label>
-        <p className="mb-2 text-xs text-slate-500">
-          Square logo for the event. If not set, event initials (e.g. &quot;SC&quot; for Super Cup) are shown.
-        </p>
-        <input
-          ref={logoInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          onChange={handleLogoChange}
-          disabled={uploading}
-          className="sr-only"
-          id="event-logo-file"
-          aria-label="Upload event logo"
-        />
-        {formData.logo ? (
-          <div className="space-y-2">
-            <div className="relative inline-block rounded-xl border border-slate-200 overflow-hidden bg-slate-100">
-              <Image
-                src={formData.logo}
-                alt="Event logo"
-                width={80}
-                height={80}
-                className="h-20 w-20 object-cover"
-              />
-              <button
-                type="button"
-                onClick={clearLogo}
-                className="absolute right-1 top-1 rounded-full bg-slate-900/60 p-1 text-white hover:bg-slate-900"
-                aria-label="Remove logo"
-              >
-                <X className="h-3 w-3" />
-              </button>
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <input
+                  type="color"
+                  value={colorTheme.startsWith('#') ? colorTheme : '#4f46e5'}
+                  onChange={(e) => setColorTheme(e.target.value)}
+                  className="h-10 w-14 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                  title="Pick a color"
+                />
+                <input
+                  type="text"
+                  value={colorTheme}
+                  onChange={(e) => setColorTheme(e.target.value)}
+                  placeholder="#4f46e5"
+                  className="w-28 rounded-lg border border-slate-200 px-2 py-1.5 font-mono text-sm text-slate-900"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  '#4f46e5',
+                  '#7c3aed',
+                  '#2563eb',
+                  '#059669',
+                  '#d97706',
+                  '#e11d48',
+                ].map((hex) => (
+                  <button
+                    key={hex}
+                    type="button"
+                    onClick={() => setColorTheme(hex)}
+                    className={`h-9 w-9 rounded-xl border-2 transition ${
+                      colorTheme === hex
+                        ? 'scale-110 border-slate-600'
+                        : 'border-slate-200 hover:border-slate-400'
+                    }`}
+                    style={{ backgroundColor: hex }}
+                    title={hex}
+                  />
+                ))}
+              </div>
             </div>
-            <label
-              htmlFor="event-logo-file"
-              className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            >
-              <Upload className="h-4 w-4" />
-              {uploading ? 'Uploading…' : 'Replace logo'}
-            </label>
+          </FormField>
+        </Section>
+
+        {error && (
+          <div
+            role="alert"
+            className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          >
+            {error}
           </div>
-        ) : (
-          <label
-            htmlFor="event-logo-file"
-            className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-slate-500 transition hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-600 disabled:opacity-50"
-          >
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-amber-100 font-bold text-amber-700">
-              {formData.title.trim()
-                ? formData.title.trim().split(/\s+/).filter(Boolean).length >= 2
-                  ? formData.title.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
-                  : formData.title.trim().slice(0, 2).toUpperCase()
-                : '?'}
-            </div>
-            <span className="text-sm font-medium">
-              {uploading ? 'Uploading…' : 'Click to upload logo (square, max 5MB)'}
-            </span>
-          </label>
         )}
       </div>
-      {error && (
-        <div className="rounded-xl bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</div>
-      )}
-      <div className="flex gap-3 pt-2">
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-xl bg-indigo-600 px-5 py-2.5 font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-50"
-        >
-          {loading ? 'Saving…' : isEdit ? 'Update event' : 'Create event'}
-        </button>
-        <Link
-          href="/admin/events"
-          className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-        >
-          Cancel
-        </Link>
+
+      {/* Sticky save bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 py-4 pl-24 backdrop-blur supports-backdrop-filter:bg-white/80 lg:pl-72">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 pr-8">
+          <p className="text-sm text-slate-500">
+            {isEdit ? 'Update your changes' : 'Review and create your event'}
+          </p>
+          <div className="flex gap-3">
+            <Link
+              href="/admin/events"
+              className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              Cancel
+            </Link>
+            <button
+              type="submit"
+              disabled={loading}
+              className="rounded-xl bg-indigo-600 px-6 py-2.5 font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-50"
+            >
+              {loading ? 'Saving…' : isEdit ? 'Update event' : 'Create event'}
+            </button>
+          </div>
+        </div>
       </div>
     </form>
   )
