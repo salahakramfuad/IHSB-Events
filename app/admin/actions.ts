@@ -262,6 +262,7 @@ export async function createEvent(
     revalidatePath('/admin/events')
     revalidatePath('/')
     revalidateTag('events', 'max')
+    revalidateTag('admin-dashboard', 'max')
     return { success: true, id: ref.id }
   } catch (error) {
     console.error('Error creating event:', error)
@@ -334,6 +335,7 @@ export async function updateEvent(
     revalidatePath('/')
     revalidatePath(`/${id}`)
     revalidateTag('events', 'max')
+    revalidateTag('admin-dashboard', 'max')
     revalidateTag(`event-${id}`, 'max')
     return { success: true }
   } catch (error) {
@@ -359,6 +361,7 @@ export async function deleteEvent(id: string): Promise<{ success: boolean; error
     revalidatePath('/admin/events')
     revalidatePath('/')
     revalidateTag('events', 'max')
+    revalidateTag('admin-dashboard', 'max')
     revalidateTag(`event-${id}`, 'max')
     return { success: true }
   } catch (error) {
@@ -688,6 +691,7 @@ export async function publishEventResults(
     revalidatePath(`/admin/events/${eventId}/registrations`)
     revalidatePath(`/${eventId}`)
     revalidateTag('events', 'max')
+    revalidateTag('admin-dashboard', 'max')
     revalidateTag(`event-${eventId}`, 'max')
 
     const firstDate = eventData.date

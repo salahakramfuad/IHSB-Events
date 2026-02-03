@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { cookies } from 'next/headers'
+import { unstable_cache } from 'next/cache'
 import { getOptimizedImageUrl } from '@/lib/cloudinary'
 import { Calendar, Users, ArrowRight, MapPin, Clock, Banknote } from 'lucide-react'
 import { adminDb } from '@/lib/firebase-admin'
@@ -25,15 +26,73 @@ function parseDate(data: unknown): string | string[] | undefined {
   return typeof date === 'string' ? date : Array.isArray(date) ? date : undefined
 }
 
-export default async function AdminDashboardPage() {
-  const cookieStore = await cookies()
-  const token = cookieStore.get('auth-token')?.value
-  const greeting = getGreeting()
+async function fetchDashboardStats() {
+  if (!adminDb) {
+    return {
+      upcomingCount: 0,
+      totalEvents: 0,
+      totalRegistrations: 0,
+      totalPaymentsCollected: 0,
+      nextUpcomingEvent: null as {
+        id: string
+        title: string
+        date: string | string[]
+        time?: string
+        location: string
+        venue?: string
+        image?: string
+        logo?: string
+        registrationCount: number
+      } | null,
+    }
+  }
+  const eventsSnap = await adminDb
+    .collection('events')
+    .orderBy('createdAt', 'desc')
+    .limit(100)
+    .get()
 
-  let upcomingCount = 0
-  let totalEvents = 0
-  let totalRegistrations = 0
-  let totalPaymentsCollected = 0
+  const totalEvents = eventsSnap.size
+  const eventsWithDate: { id: string; date: string | string[]; data: Record<string, unknown> }[] = []
+  eventsSnap.docs.forEach((d) => {
+    const data = d.data()
+    const date = parseDate(data.date)
+    eventsWithDate.push({ id: d.id, date: date as string | string[], data: { ...data, date } })
+  })
+  const upcoming = eventsWithDate.filter((e) => isEventUpcoming(e.date))
+
+  // Use count() aggregation instead of fetching all docs - O(1) reads per event
+  const regCounts = await Promise.all(
+    eventsSnap.docs.map(async (doc) => {
+      const data = doc.data()
+      const isPaid = !!data.isPaid && typeof data.amount === 'number' && data.amount > 0
+      const amount = (data.amount as number) ?? 0
+
+      const [totalSnap, paidSnap] = await Promise.all([
+        doc.ref.collection('registrations').count().get(),
+        isPaid
+          ? doc.ref
+              .collection('registrations')
+              .where('paymentStatus', '==', 'completed')
+              .count()
+              .get()
+          : null,
+      ])
+
+      const count = (totalSnap.data() as { count?: number })?.count ?? 0
+      const paidCount = isPaid && paidSnap ? ((paidSnap.data() as { count?: number })?.count ?? 0) : 0
+
+      return { id: doc.id, count, paidCount, amount, isPaid }
+    })
+  )
+
+  const regCountMap = Object.fromEntries(regCounts.map((r) => [r.id, r.count]))
+  const totalRegistrations = regCounts.reduce((sum, r) => sum + r.count, 0)
+  const totalPaymentsCollected = regCounts.reduce(
+    (sum, r) => sum + (r.isPaid ? r.amount * r.paidCount : 0),
+    0
+  )
+
   let nextUpcomingEvent: {
     id: string
     title: string
@@ -46,72 +105,60 @@ export default async function AdminDashboardPage() {
     registrationCount: number
   } | null = null
 
-  // Fetch profile and events in parallel for faster initial load
-  const [profile, eventsSnap] = await Promise.all([
-    getCurrentAdminProfile(token),
-    adminDb ? adminDb.collection('events').orderBy('createdAt', 'desc').limit(100).get() : Promise.resolve(null),
-  ])
-  const displayName = profile?.displayName?.trim() || profile?.email?.split('@')[0] || ''
-
-  if (eventsSnap) {
-    try {
-      totalEvents = eventsSnap.size
-      const eventsWithDate: { id: string; date: string | string[]; data: Record<string, unknown> }[] = []
-      eventsSnap.docs.forEach((d) => {
-        const data = d.data()
-        const date = parseDate(data.date)
-        eventsWithDate.push({ id: d.id, date: date as string | string[], data: { ...data, date } })
-      })
-      const upcoming = eventsWithDate.filter((e) => isEventUpcoming(e.date))
-      upcomingCount = upcoming.length
-
-      // Parallelize all registration count fetches and payment totals
-      const regCounts = await Promise.all(
-        eventsSnap.docs.map(async (doc) => {
-          const data = doc.data()
-          const isPaid = !!data.isPaid && typeof data.amount === 'number' && data.amount > 0
-          const amount = (data.amount as number) ?? 0
-          const snap = await doc.ref.collection('registrations').get()
-          let paidCount = 0
-          if (isPaid) {
-            snap.forEach((d) => {
-              if (d.data().paymentStatus === 'completed') paidCount++
-            })
-          }
-          return { id: doc.id, count: snap.size, paidCount, amount, isPaid }
-        })
-      )
-      const regCountMap = Object.fromEntries(regCounts.map((r) => [r.id, r.count]))
-      totalRegistrations = regCounts.reduce((sum, r) => sum + r.count, 0)
-      totalPaymentsCollected = regCounts.reduce((sum, r) => sum + (r.isPaid ? r.amount * r.paidCount : 0), 0)
-
-      if (upcoming.length > 0) {
-        const sorted = [...upcoming].sort((a, b) => {
-          const dA = getFirstEventDate(a.date)
-          const dB = getFirstEventDate(b.date)
-          if (!dA) return 1
-          if (!dB) return -1
-          return dA.getTime() - dB.getTime()
-        })
-        const next = sorted[0]
-        nextUpcomingEvent = {
-          id: next.id,
-          title: String(next.data.title ?? 'Untitled'),
-          date: next.date,
-          time: next.data.time as string | undefined,
-          location: String(next.data.location ?? ''),
-          venue: next.data.venue as string | undefined,
-          image: next.data.image as string | undefined,
-          logo: next.data.logo as string | undefined,
-          registrationCount: regCountMap[next.id] ?? 0,
-        }
-      }
-    } catch (e) {
-      console.error('Admin dashboard stats error:', e)
+  if (upcoming.length > 0) {
+    const sorted = [...upcoming].sort((a, b) => {
+      const dA = getFirstEventDate(a.date)
+      const dB = getFirstEventDate(b.date)
+      if (!dA) return 1
+      if (!dB) return -1
+      return dA.getTime() - dB.getTime()
+    })
+    const next = sorted[0]
+    nextUpcomingEvent = {
+      id: next.id,
+      title: String(next.data.title ?? 'Untitled'),
+      date: next.date,
+      time: next.data.time as string | undefined,
+      location: String(next.data.location ?? ''),
+      venue: next.data.venue as string | undefined,
+      image: next.data.image as string | undefined,
+      logo: next.data.logo as string | undefined,
+      registrationCount: regCountMap[next.id] ?? 0,
     }
   }
 
-  const stats = [
+  return {
+    upcomingCount: upcoming.length,
+    totalEvents,
+    totalRegistrations,
+    totalPaymentsCollected,
+    nextUpcomingEvent,
+  }
+}
+
+export default async function AdminDashboardPage() {
+  const cookieStore = await cookies()
+  const token = cookieStore.get('auth-token')?.value
+  const greeting = getGreeting()
+
+  const [profile, stats] = await Promise.all([
+    getCurrentAdminProfile(token),
+    unstable_cache(fetchDashboardStats, ['admin-dashboard-stats'], {
+      revalidate: 60,
+      tags: ['admin-dashboard', 'events'],
+    })(),
+  ])
+  const displayName = profile?.displayName?.trim() || profile?.email?.split('@')[0] || ''
+
+  const {
+    upcomingCount = 0,
+    totalEvents = 0,
+    totalRegistrations = 0,
+    totalPaymentsCollected = 0,
+    nextUpcomingEvent = null,
+  } = stats ?? {}
+
+  const statsCards = [
     { label: 'Upcoming events', value: upcomingCount, icon: Calendar, color: 'bg-indigo-100 text-indigo-600' },
     { label: 'Total events', value: totalEvents, icon: Calendar, color: 'bg-slate-100 text-slate-600' },
     { label: 'Total registrations', value: totalRegistrations, icon: Users, color: 'bg-emerald-100 text-emerald-600' },
@@ -125,7 +172,7 @@ export default async function AdminDashboardPage() {
       </h1>
       <p className="text-slate-600 mb-8">Here’s what’s happening with your events.</p>
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-10">
-        {stats.map(({ label, value, icon: Icon, color }) => (
+        {statsCards.map(({ label, value, icon: Icon, color }) => (
           <div
             key={label}
             className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm"
