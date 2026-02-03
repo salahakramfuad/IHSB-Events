@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { useState, useEffect } from 'react'
-import { Building2, Plus, Pencil, Trash2, X, Search, Users, Award } from 'lucide-react'
+import { Building2, Plus, Pencil, Trash2, X, Search, Users, Award, Calendar } from 'lucide-react'
 
 type School = {
   id: string
@@ -12,8 +12,15 @@ type School = {
   winners?: number
 }
 
+type EventOption = {
+  id: string
+  title: string
+}
+
 export default function AdminSchoolsPage() {
   const [list, setList] = useState<School[]>([])
+  const [events, setEvents] = useState<EventOption[]>([])
+  const [selectedEventId, setSelectedEventId] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -27,9 +34,23 @@ export default function AdminSchoolsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleteSaving, setDeleteSaving] = useState(false)
 
+  const loadEvents = async () => {
+    try {
+      const res = await fetch('/api/admin/events')
+      if (res.ok) {
+        const data = await res.json()
+        setEvents(data)
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   const loadSchools = async () => {
     try {
-      const res = await fetch('/api/schools?stats=1')
+      const params = new URLSearchParams({ stats: '1' })
+      if (selectedEventId) params.set('eventId', selectedEventId)
+      const res = await fetch(`/api/schools?${params}`)
       if (!res.ok) {
         setError('Failed to load schools.')
         return
@@ -45,8 +66,13 @@ export default function AdminSchoolsPage() {
   }
 
   useEffect(() => {
-    loadSchools()
+    loadEvents()
   }, [])
+
+  useEffect(() => {
+    setLoading(true)
+    loadSchools()
+  }, [selectedEventId])
 
   const filtered = list.filter((s) =>
     s.name.toLowerCase().includes(search.trim().toLowerCase())
@@ -213,7 +239,7 @@ export default function AdminSchoolsPage() {
 
   return (
     <div>
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-slate-900">Schools</h1>
         <button
           type="button"
@@ -223,6 +249,31 @@ export default function AdminSchoolsPage() {
           <Plus className="h-4 w-4" aria-hidden />
           Add school
         </button>
+      </div>
+
+      <div className="mb-8 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+        <Calendar className="h-5 w-5 text-slate-500" aria-hidden />
+        <label htmlFor="event-filter" className="text-sm font-medium text-slate-700">
+          View stats by event
+        </label>
+        <select
+          id="event-filter"
+          value={selectedEventId}
+          onChange={(e) => setSelectedEventId(e.target.value)}
+          className="min-w-[200px] rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+        >
+          <option value="">All events</option>
+          {events.map((ev) => (
+            <option key={ev.id} value={ev.id}>
+              {ev.title}
+            </option>
+          ))}
+        </select>
+        {selectedEventId && (
+          <span className="text-sm text-slate-500">
+            Showing stats for selected event only
+          </span>
+        )}
       </div>
 
       {!loading && (
@@ -240,22 +291,26 @@ export default function AdminSchoolsPage() {
             </div>
             <div
               className="cursor-help rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-slate-300"
-              title="Total event registrations across all events. Each student can register for multiple events."
+              title={selectedEventId ? 'Registrations for the selected event.' : 'Total event registrations across all events. Each student can register for multiple events.'}
             >
               <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
                 <Users className="h-5 w-5" aria-hidden />
               </div>
-              <p className="text-sm font-medium text-slate-500">Total participants</p>
+              <p className="text-sm font-medium text-slate-500">
+                {selectedEventId ? 'Participants (this event)' : 'Total participants'}
+              </p>
               <p className="mt-1 text-3xl font-bold text-slate-900">{totalParticipants}</p>
             </div>
             <div
               className="cursor-help rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-slate-300"
-              title="Participants who secured 1st–20th position in any event. Winners are featured in event results."
+              title={selectedEventId ? 'Winners (1st–20th) in the selected event.' : 'Participants who secured 1st–20th position in any event. Winners are featured in event results.'}
             >
               <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
                 <Award className="h-5 w-5" aria-hidden />
               </div>
-              <p className="text-sm font-medium text-slate-500">Total winners</p>
+              <p className="text-sm font-medium text-slate-500">
+                {selectedEventId ? 'Winners (this event)' : 'Total winners'}
+              </p>
               <p className="mt-1 text-3xl font-bold text-slate-900">{totalWinners}</p>
             </div>
           </div>
@@ -266,7 +321,7 @@ export default function AdminSchoolsPage() {
               title="Distribution of event registrations across schools. Hover over segments or legend for details."
             >
               <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-500">
-                Registrations by school
+                {selectedEventId ? 'Registrations by school (this event)' : 'Registrations by school'}
               </h3>
               {renderPieChart(registrationsBySchool, totalParticipants) ?? (
                 <p className="py-8 text-center text-sm text-slate-500">No registration data yet.</p>
@@ -277,7 +332,7 @@ export default function AdminSchoolsPage() {
               title="Distribution of winners (1st–20th) across schools. Hover over segments or legend for details."
             >
               <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-500">
-                Winners by school
+                {selectedEventId ? 'Winners by school (this event)' : 'Winners by school'}
               </h3>
               {renderPieChart(winnersBySchool, totalWinners) ?? (
                 <p className="py-8 text-center text-sm text-slate-500">No winner data yet.</p>

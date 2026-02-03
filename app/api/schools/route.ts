@@ -1,3 +1,4 @@
+import type { DocumentReference } from 'firebase-admin/firestore'
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase-admin'
 import { getCurrentAdminProfile } from '@/lib/get-admin'
@@ -10,12 +11,22 @@ export type School = {
   winners?: number
 }
 
-async function getSchoolStats(): Promise<Record<string, { participants: number; winners: number }>> {
+async function getSchoolStats(
+  eventId?: string | null
+): Promise<Record<string, { participants: number; winners: number }>> {
   if (!adminDb) return {}
   const stats: Record<string, { participants: number; winners: number }> = {}
-  const eventsSnap = await adminDb.collection('events').get()
-  for (const eventDoc of eventsSnap.docs) {
-    const regsSnap = await eventDoc.ref.collection('registrations').get()
+  let eventRefs: DocumentReference[]
+  if (eventId?.trim()) {
+    const eventDoc = await adminDb.collection('events').doc(eventId.trim()).get()
+    if (!eventDoc.exists) return {}
+    eventRefs = [eventDoc.ref]
+  } else {
+    const eventsSnap = await adminDb.collection('events').get()
+    eventRefs = eventsSnap.docs.map((d) => d.ref)
+  }
+  for (const ref of eventRefs) {
+    const regsSnap = await ref.collection('registrations').get()
     for (const regDoc of regsSnap.docs) {
       const data = regDoc.data()
       const school = (data.school ?? '').trim() || 'Unknown'
@@ -36,6 +47,7 @@ export async function GET(request: NextRequest) {
   }
   const { searchParams } = new URL(request.url)
   const includeStats = searchParams.get('stats') === '1'
+  const eventId = searchParams.get('eventId') || undefined
   try {
     const snapshot = await adminDb.collection('schools').orderBy('name').get()
     let schools: School[] = snapshot.docs.map((doc) => {
@@ -48,7 +60,7 @@ export async function GET(request: NextRequest) {
       }
     })
     if (includeStats) {
-      const stats = await getSchoolStats()
+      const stats = await getSchoolStats(eventId)
       schools = schools.map((s) => {
         const sStats = stats[s.name] ?? { participants: 0, winners: 0 }
         return { ...s, participants: sStats.participants, winners: sStats.winners }

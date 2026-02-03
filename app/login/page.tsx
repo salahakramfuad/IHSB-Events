@@ -57,8 +57,13 @@ function LoginForm() {
       router.push(redirect)
       router.refresh()
     } catch (err: unknown) {
-      const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message: string }).message) : 'Login failed'
-      setError(msg)
+      const code = err && typeof err === 'object' && 'code' in err ? String((err as { code: string }).code) : ''
+      const isInvalidCreds =
+        code === 'auth/invalid-credential' ||
+        code === 'auth/wrong-password' ||
+        code === 'auth/user-not-found' ||
+        code === 'auth/invalid-email'
+      setError(isInvalidCreds ? 'Username or password is incorrect. Try again.' : (err && typeof err === 'object' && 'message' in err ? String((err as { message: string }).message) : 'Login failed'))
     } finally {
       setLoading(false)
     }
