@@ -7,6 +7,8 @@ export interface IHSBConfirmationEmailProps {
   name: string
   event: Event
   registrationId: string
+  /** Optional PDF attachment (registration certificate) */
+  pdfAttachment?: { content: string; name: string }
 }
 
 export interface IHSBEmailResult {
@@ -22,6 +24,7 @@ export async function sendIHSBConfirmationEmail({
   name,
   event,
   registrationId,
+  pdfAttachment,
 }: IHSBConfirmationEmailProps): Promise<IHSBEmailResult> {
   try {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -122,6 +125,14 @@ export async function sendIHSBConfirmationEmail({
           </tr>
         </table>
         
+        ${pdfAttachment?.content ? `
+        <div style="background:#ecfdf5;border-radius:12px;padding:16px;margin:25px 0;border:1px solid #a7f3d0;">
+          <p style="color:#047857;font-size:14px;margin:0;font-weight:500;">
+            📎 Your registration card (PDF) is attached to this email. Save it for check-in!
+          </p>
+        </div>
+        ` : ''}
+
         <!-- Call to action / reminder -->
         <div style="background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);border-radius:12px;padding:20px;margin:25px 0;text-align:center;border:1px solid #bfdbfe;">
           <p style="color:#1e40af;font-size:15px;margin:0;font-weight:500;">
@@ -164,6 +175,15 @@ export async function sendIHSBConfirmationEmail({
     sendSmtpEmail.to = [{ email: normalizedEmail, name }]
     sendSmtpEmail.subject = `Registration Confirmation: ${event.title} - ${registrationId}`
     sendSmtpEmail.htmlContent = emailHtml
+
+    if (pdfAttachment?.content && pdfAttachment?.name) {
+      sendSmtpEmail.attachment = [
+        {
+          content: pdfAttachment.content,
+          name: pdfAttachment.name,
+        },
+      ]
+    }
 
     const data = await apiInstance.sendTransacEmail(sendSmtpEmail)
 

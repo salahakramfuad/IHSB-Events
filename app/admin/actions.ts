@@ -225,6 +225,7 @@ export async function createEvent(
     categories?: string[]
     colorTheme?: string
     isPaid?: boolean
+    sendPdfOnRegistration?: boolean
     amount?: number
     categoryAmounts?: Record<string, number>
     contactPersons?: { name: string; phone: string; position?: string }[]
@@ -252,6 +253,7 @@ export async function createEvent(
       fullDescription: data.fullDescription ?? data.description ?? null,
       categories: categories.length > 0 ? categories : null,
       colorTheme: data.colorTheme?.trim() || null,
+      sendPdfOnRegistration: data.sendPdfOnRegistration ?? true,
       isPaid: data.isPaid ?? false,
       amount:
         data.isPaid && typeof data.amount === 'number' && data.amount >= 0
@@ -304,6 +306,7 @@ export async function updateEvent(
     logo: string
     categories: string[]
     colorTheme: string
+    sendPdfOnRegistration: boolean
     isPaid: boolean
     amount: number
     categoryAmounts: Record<string, number>

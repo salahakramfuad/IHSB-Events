@@ -4,7 +4,9 @@ import { adminDb } from '@/lib/firebase-admin'
 import { generateRegistrationId } from '@/lib/registrationId'
 import { sendIHSBConfirmationEmail } from '@/lib/brevo'
 import { ensureSchoolExists } from '@/lib/schools'
+import { generateRegistrationPDFAsBuffer } from '@/lib/generateRegistrationPDFServer'
 import type { Event } from '@/types/event'
+import type { Registration } from '@/types/registration'
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
@@ -110,11 +112,45 @@ export async function POST(request: NextRequest) {
       description: eventData.description ?? '',
     }
 
+    const registrationForPdf: Registration = {
+      id: registrationId,
+      registrationId,
+      name: name.trim(),
+      email: normalizedEmail,
+      phone: phone.trim(),
+      school: school.trim(),
+      note: note != null ? String(note).trim() : undefined,
+      category: eventCategories.length > 0 && category != null ? String(category).trim() : undefined,
+      position: null,
+      createdAt: now.toISOString(),
+    }
+
+    const sendPdf = eventData.sendPdfOnRegistration !== false
+    let pdfAttachment: { content: string; name: string } | undefined
+    if (sendPdf) {
+      try {
+        const pdfBuffer = await generateRegistrationPDFAsBuffer({
+          event: eventForEmail,
+          registration: registrationForPdf,
+          logoUrl: eventData.logo,
+        })
+        const safeName = name.trim().replace(/[^a-z0-9]/gi, '_')
+        const safeTitle = eventData.title?.replace(/[^a-z0-9]/gi, '_') ?? 'Event'
+        pdfAttachment = {
+          content: pdfBuffer.toString('base64'),
+          name: `${safeName}_${safeTitle}_Registration.pdf`,
+        }
+      } catch (pdfErr) {
+        console.error('Failed to generate registration PDF for email:', pdfErr)
+      }
+    }
+
     const emailResult = await sendIHSBConfirmationEmail({
       to: normalizedEmail,
       name: name.trim(),
       event: eventForEmail,
       registrationId,
+      pdfAttachment,
     })
 
     if (!emailResult.success) {

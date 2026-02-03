@@ -5,7 +5,9 @@ import { executePayment } from '@/lib/bkash'
 import { sendIHSBConfirmationEmail } from '@/lib/brevo'
 import { generateRegistrationId } from '@/lib/registrationId'
 import { ensureSchoolExists } from '@/lib/schools'
+import { generateRegistrationPDFAsBuffer } from '@/lib/generateRegistrationPDFServer'
 import type { Event } from '@/types/event'
+import type { Registration } from '@/types/registration'
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
@@ -145,11 +147,46 @@ export async function POST(request: NextRequest) {
       description: eventDataRaw.description ?? '',
     }
 
+    const registrationForPdf: Registration = {
+      id: registrationId,
+      registrationId,
+      name: name.trim(),
+      email: normalizedEmail,
+      phone: phone.trim(),
+      school: school.trim(),
+      note: note != null ? String(note).trim() : undefined,
+      category: category != null && String(category).trim() ? String(category).trim() : undefined,
+      position: null,
+      paymentStatus: 'completed',
+      createdAt: now.toISOString(),
+    }
+
+    const sendPdf = eventDataRaw.sendPdfOnRegistration !== false
+    let pdfAttachment: { content: string; name: string } | undefined
+    if (sendPdf) {
+      try {
+        const pdfBuffer = await generateRegistrationPDFAsBuffer({
+          event: eventForEmail,
+          registration: registrationForPdf,
+          logoUrl: eventDataRaw.logo,
+        })
+        const safeName = name.trim().replace(/[^a-z0-9]/gi, '_')
+        const safeTitle = eventDataRaw.title?.replace(/[^a-z0-9]/gi, '_') ?? 'Event'
+        pdfAttachment = {
+          content: pdfBuffer.toString('base64'),
+          name: `${safeName}_${safeTitle}_Registration.pdf`,
+        }
+      } catch (pdfErr) {
+        console.error('Failed to generate registration PDF for email:', pdfErr)
+      }
+    }
+
     await sendIHSBConfirmationEmail({
       to: normalizedEmail,
       name: name.trim(),
       event: eventForEmail,
       registrationId,
+      pdfAttachment,
     })
 
     revalidateTag('schools', 'max')

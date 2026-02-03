@@ -95,7 +95,7 @@ function themeFromHex(hex: string): typeof DEFAULT_THEME {
   }
 }
 
-function getTheme(event: Event) {
+export function getTheme(event: Event) {
   const val = event.colorTheme?.trim()
   if (!val) return DEFAULT_THEME
   if (val.startsWith('#')) return themeFromHex(val)

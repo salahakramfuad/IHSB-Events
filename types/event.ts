@@ -27,6 +27,8 @@ export type Event = {
   resultsPublishedAt?: string | null
   /** Contact persons for the event (name, phone, position) */
   contactPersons?: { name: string; phone: string; position?: string }[]
+  /** If true, attach registration PDF to confirmation email; otherwise email only */
+  sendPdfOnRegistration?: boolean
   createdAt: Date | string
   updatedAt: Date | string
   createdBy: string

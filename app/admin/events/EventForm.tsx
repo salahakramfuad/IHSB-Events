@@ -132,6 +132,7 @@ export default function EventForm({ event }: EventFormProps) {
     logo: event?.logo ?? '',
     isPaid: event?.isPaid ?? false,
     amount: event?.amount ?? 0,
+    sendPdfOnRegistration: event?.sendPdfOnRegistration ?? true,
   })
   const [categories, setCategories] = useState<string[]>(
     Array.isArray(event?.categories) ? [...event.categories] : []
@@ -309,6 +310,7 @@ export default function EventForm({ event }: EventFormProps) {
                   .filter((p) => p.name.trim() || p.phone.trim())
                   .map((p) => ({ name: p.name.trim(), phone: p.phone.trim(), position: p.position.trim() || undefined }))
               : undefined,
+          sendPdfOnRegistration: formData.sendPdfOnRegistration,
         })
         if (result.success) {
           router.push('/admin/events')
@@ -343,6 +345,7 @@ export default function EventForm({ event }: EventFormProps) {
                   .filter((p) => p.name.trim() || p.phone.trim())
                   .map((p) => ({ name: p.name.trim(), phone: p.phone.trim(), position: p.position.trim() || undefined }))
               : undefined,
+          sendPdfOnRegistration: formData.sendPdfOnRegistration,
         })
         if (result.success && result.id) {
           router.push('/admin/events')
@@ -774,6 +777,27 @@ export default function EventForm({ event }: EventFormProps) {
                 </div>
               </div>
             )}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={formData.sendPdfOnRegistration}
+                  onChange={(e) => {
+                    setFormData((prev) => ({ ...prev, sendPdfOnRegistration: e.target.checked }))
+                    setError('')
+                  }}
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span>
+                  <span className="text-sm font-medium text-slate-900">
+                    Send registration PDF with confirmation email
+                  </span>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    When enabled, a PDF registration card is attached to the confirmation email. When disabled, only the email is sent.
+                  </p>
+                </span>
+              </label>
+            </div>
             {formData.isPaid && categories.length === 0 && (
               <FormField
                 label="Amount (BDT)"
