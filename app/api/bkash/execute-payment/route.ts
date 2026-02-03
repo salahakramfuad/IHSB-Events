@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { adminDb } from '@/lib/firebase-admin'
 import { executePayment } from '@/lib/bkash'
 import { sendIHSBConfirmationEmail } from '@/lib/brevo'
@@ -151,6 +152,8 @@ export async function POST(request: NextRequest) {
       registrationId,
     })
 
+    revalidateTag('schools', 'max')
+    revalidateTag('admin-dashboard', 'max')
     return NextResponse.json({
       success: true,
       registrationId,

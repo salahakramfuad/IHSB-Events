@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { adminDb } from '@/lib/firebase-admin'
 import { generateRegistrationId } from '@/lib/registrationId'
 import { sendIHSBConfirmationEmail } from '@/lib/brevo'
@@ -124,6 +125,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    revalidateTag('schools', 'max')
+    revalidateTag('admin-dashboard', 'max')
     return NextResponse.json({ success: true, registrationId }, { status: 201 })
   } catch (error) {
     console.error('Register API error:', error)

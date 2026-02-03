@@ -1,5 +1,5 @@
-import type { DocumentReference } from 'firebase-admin/firestore'
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { adminDb } from '@/lib/firebase-admin'
 import { getCurrentAdminProfile } from '@/lib/get-admin'
 
@@ -16,18 +16,14 @@ async function getSchoolStats(
 ): Promise<Record<string, { participants: number; winners: number }>> {
   if (!adminDb) return {}
   const stats: Record<string, { participants: number; winners: number }> = {}
-  let eventRefs: DocumentReference[]
+
   if (eventId?.trim()) {
-    const eventDoc = await adminDb.collection('events').doc(eventId.trim()).get()
-    if (!eventDoc.exists) return {}
-    eventRefs = [eventDoc.ref]
-  } else {
-    const eventsSnap = await adminDb.collection('events').get()
-    eventRefs = eventsSnap.docs.map((d) => d.ref)
-  }
-  for (const ref of eventRefs) {
-    const regsSnap = await ref.collection('registrations').get()
-    for (const regDoc of regsSnap.docs) {
+    const regsSnap = await adminDb
+      .collection('events')
+      .doc(eventId.trim())
+      .collection('registrations')
+      .get()
+    regsSnap.docs.forEach((regDoc) => {
       const data = regDoc.data()
       const school = (data.school ?? '').trim() || 'Unknown'
       if (!stats[school]) stats[school] = { participants: 0, winners: 0 }
@@ -36,7 +32,19 @@ async function getSchoolStats(
       if (typeof pos === 'number' && pos >= 1 && pos <= 20) {
         stats[school].winners += 1
       }
-    }
+    })
+  } else {
+    const regsSnap = await adminDb.collectionGroup('registrations').get()
+    regsSnap.docs.forEach((regDoc) => {
+      const data = regDoc.data()
+      const school = (data.school ?? '').trim() || 'Unknown'
+      if (!stats[school]) stats[school] = { participants: 0, winners: 0 }
+      stats[school].participants += 1
+      const pos = data.position
+      if (typeof pos === 'number' && pos >= 1 && pos <= 20) {
+        stats[school].winners += 1
+      }
+    })
   }
   return stats
 }
@@ -103,6 +111,7 @@ export async function POST(request: NextRequest) {
       name,
       createdAt: now.toISOString(),
     }
+    revalidateTag('schools', 'max')
     return NextResponse.json(school, { status: 201 })
   } catch (error) {
     console.error('POST /api/schools error:', error)

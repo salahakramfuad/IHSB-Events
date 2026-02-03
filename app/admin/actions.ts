@@ -1,7 +1,8 @@
 'use server'
 
-import type { DocumentReference, DocumentSnapshot } from 'firebase-admin/firestore'
+import type { DocumentSnapshot } from 'firebase-admin/firestore'
 import { cookies } from 'next/headers'
+import { unstable_cache } from 'next/cache'
 import { adminDb } from '@/lib/firebase-admin'
 import { getCurrentAdminProfile } from '@/lib/get-admin'
 import type { Event } from '@/types/event'
@@ -88,18 +89,15 @@ async function getSchoolStatsFromDb(
 ): Promise<Record<string, { participants: number; winners: number }>> {
   if (!adminDb) return {}
   const stats: Record<string, { participants: number; winners: number }> = {}
-  let eventRefs: DocumentReference[]
+
   if (eventId?.trim()) {
-    const eventDoc = await adminDb.collection('events').doc(eventId.trim()).get()
-    if (!eventDoc.exists) return {}
-    eventRefs = [eventDoc.ref]
-  } else {
-    const eventsSnap = await adminDb.collection('events').get()
-    eventRefs = eventsSnap.docs.map((d) => d.ref)
-  }
-  for (const ref of eventRefs) {
-    const regsSnap = await ref.collection('registrations').get()
-    for (const regDoc of regsSnap.docs) {
+    // Single event: one collection query
+    const regsSnap = await adminDb
+      .collection('events')
+      .doc(eventId.trim())
+      .collection('registrations')
+      .get()
+    regsSnap.docs.forEach((regDoc) => {
       const data = regDoc.data()
       const school = (data.school ?? '').trim() || 'Unknown'
       if (!stats[school]) stats[school] = { participants: 0, winners: 0 }
@@ -108,34 +106,56 @@ async function getSchoolStatsFromDb(
       if (typeof pos === 'number' && pos >= 1 && pos <= 20) {
         stats[school].winners += 1
       }
-    }
+    })
+  } else {
+    // All events: single collectionGroup query instead of N+1
+    const regsSnap = await adminDb.collectionGroup('registrations').get()
+    regsSnap.docs.forEach((regDoc) => {
+      const data = regDoc.data()
+      const school = (data.school ?? '').trim() || 'Unknown'
+      if (!stats[school]) stats[school] = { participants: 0, winners: 0 }
+      stats[school].participants += 1
+      const pos = data.position
+      if (typeof pos === 'number' && pos >= 1 && pos <= 20) {
+        stats[school].winners += 1
+      }
+    })
   }
   return stats
 }
 
-export async function getSchoolsWithStats(eventId?: string | null): Promise<SchoolWithStats[]> {
+async function fetchSchoolsWithStats(eventId?: string | null): Promise<SchoolWithStats[]> {
   if (!adminDb) return []
   try {
-    const snapshot = await adminDb.collection('schools').orderBy('name').get()
-    let schools: SchoolWithStats[] = snapshot.docs.map((doc) => {
+    const [schoolsSnap, stats] = await Promise.all([
+      adminDb.collection('schools').orderBy('name').get(),
+      getSchoolStatsFromDb(eventId),
+    ])
+    return schoolsSnap.docs.map((doc) => {
       const data = doc.data()
       const createdAt = data.createdAt?.toDate?.() ?? data.createdAt
+      const name = data.name ?? ''
+      const sStats = stats[name] ?? { participants: 0, winners: 0 }
       return {
         id: doc.id,
-        name: data.name ?? '',
+        name,
         createdAt: createdAt instanceof Date ? createdAt.toISOString() : String(createdAt ?? ''),
+        participants: sStats.participants,
+        winners: sStats.winners,
       }
     })
-    const stats = await getSchoolStatsFromDb(eventId)
-    schools = schools.map((s) => {
-      const sStats = stats[s.name] ?? { participants: 0, winners: 0 }
-      return { ...s, participants: sStats.participants, winners: sStats.winners }
-    })
-    return schools
   } catch (error) {
     console.error('getSchoolsWithStats error:', error)
     return []
   }
+}
+
+export async function getSchoolsWithStats(eventId?: string | null): Promise<SchoolWithStats[]> {
+  return unstable_cache(
+    () => fetchSchoolsWithStats(eventId),
+    ['schools-with-stats', eventId ?? 'all'],
+    { revalidate: 60, tags: ['schools', 'admin-dashboard', eventId ? `event-${eventId}` : 'events'] }
+  )()
 }
 
 export async function getAdmins(): Promise<
@@ -448,6 +468,7 @@ export async function updateRegistrationPosition(
     revalidatePath(`/admin/events/${eventId}`)
     revalidatePath(`/admin/events/${eventId}/registrations`)
     revalidatePath(`/${eventId}`)
+    revalidateTag('schools', 'max')
     return { success: true }
   } catch (error) {
     console.error('Error updating registration position:', error)
@@ -480,6 +501,7 @@ export async function deleteRegistration(
     revalidatePath(`/admin/events/${eventId}`)
     revalidatePath(`/admin/events/${eventId}/registrations`)
     revalidatePath(`/${eventId}`)
+    revalidateTag('schools', 'max')
     return { success: true }
   } catch (error) {
     console.error('Error deleting registration:', error)
@@ -549,6 +571,7 @@ export async function updateRegistration(
     revalidatePath(`/admin/events/${eventId}`)
     revalidatePath(`/admin/events/${eventId}/registrations`)
     revalidatePath(`/${eventId}`)
+    revalidateTag('schools', 'max')
     return { success: true }
   } catch (error) {
     console.error('Error updating registration:', error)
