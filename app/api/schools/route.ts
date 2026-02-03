@@ -6,15 +6,39 @@ export type School = {
   id: string
   name: string
   createdAt: string
+  participants?: number
+  winners?: number
 }
 
-export async function GET() {
+async function getSchoolStats(): Promise<Record<string, { participants: number; winners: number }>> {
+  if (!adminDb) return {}
+  const stats: Record<string, { participants: number; winners: number }> = {}
+  const eventsSnap = await adminDb.collection('events').get()
+  for (const eventDoc of eventsSnap.docs) {
+    const regsSnap = await eventDoc.ref.collection('registrations').get()
+    for (const regDoc of regsSnap.docs) {
+      const data = regDoc.data()
+      const school = (data.school ?? '').trim() || 'Unknown'
+      if (!stats[school]) stats[school] = { participants: 0, winners: 0 }
+      stats[school].participants += 1
+      const pos = data.position
+      if (typeof pos === 'number' && pos >= 1 && pos <= 20) {
+        stats[school].winners += 1
+      }
+    }
+  }
+  return stats
+}
+
+export async function GET(request: NextRequest) {
   if (!adminDb) {
     return NextResponse.json({ error: 'Service unavailable' }, { status: 503 })
   }
+  const { searchParams } = new URL(request.url)
+  const includeStats = searchParams.get('stats') === '1'
   try {
     const snapshot = await adminDb.collection('schools').orderBy('name').get()
-    const schools: School[] = snapshot.docs.map((doc) => {
+    let schools: School[] = snapshot.docs.map((doc) => {
       const data = doc.data()
       const createdAt = data.createdAt?.toDate?.() ?? data.createdAt
       return {
@@ -23,6 +47,13 @@ export async function GET() {
         createdAt: createdAt instanceof Date ? createdAt.toISOString() : String(createdAt ?? ''),
       }
     })
+    if (includeStats) {
+      const stats = await getSchoolStats()
+      schools = schools.map((s) => {
+        const sStats = stats[s.name] ?? { participants: 0, winners: 0 }
+        return { ...s, participants: sStats.participants, winners: sStats.winners }
+      })
+    }
     return NextResponse.json(schools)
   } catch (error) {
     console.error('GET /api/schools error:', error)

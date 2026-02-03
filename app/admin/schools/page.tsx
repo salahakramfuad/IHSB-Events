@@ -1,12 +1,15 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useState, useEffect } from 'react'
-import { Building2, Plus, Pencil, Trash2, X, Search } from 'lucide-react'
+import { Building2, Plus, Pencil, Trash2, X, Search, Users, Award } from 'lucide-react'
 
 type School = {
   id: string
   name: string
   createdAt: string
+  participants?: number
+  winners?: number
 }
 
 export default function AdminSchoolsPage() {
@@ -26,7 +29,7 @@ export default function AdminSchoolsPage() {
 
   const loadSchools = async () => {
     try {
-      const res = await fetch('/api/schools')
+      const res = await fetch('/api/schools?stats=1')
       if (!res.ok) {
         setError('Failed to load schools.')
         return
@@ -135,6 +138,79 @@ export default function AdminSchoolsPage() {
   const inputClass =
     'w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition'
 
+  const totalParticipants = list.reduce((s, x) => s + (x.participants ?? 0), 0)
+  const totalWinners = list.reduce((s, x) => s + (x.winners ?? 0), 0)
+
+  const PIE_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316']
+  const circumference = 2 * Math.PI * 40
+
+  const registrationsBySchool = list
+    .filter((s) => (s.participants ?? 0) > 0)
+    .map((s, i) => ({ name: s.name, value: s.participants ?? 0, color: PIE_COLORS[i % PIE_COLORS.length] }))
+  const winnersBySchool = list
+    .filter((s) => (s.winners ?? 0) > 0)
+    .map((s, i) => ({ name: s.name, value: s.winners ?? 0, color: PIE_COLORS[i % PIE_COLORS.length] }))
+
+  const renderPieChart = (data: { name: string; value: number; color: string }[], total: number) => {
+    if (data.length === 0 || total === 0) return null
+    return (
+      <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+        <div className="relative h-48 w-48">
+          <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+            {data.reduce<{ offset: number; elements: ReactNode[] }>(
+              (acc, d, i) => {
+                const segmentLength = (d.value / total) * circumference
+                const dashArray = `${segmentLength} ${circumference}`
+                const dashOffset = -acc.offset
+                const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0'
+                acc.offset += segmentLength
+                acc.elements.push(
+                  <g key={i} style={{ cursor: 'pointer' }}>
+                    <title>{`${d.name}: ${d.value} (${pct}%)`}</title>
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      fill="none"
+                      stroke={d.color}
+                      strokeWidth="20"
+                      strokeDasharray={dashArray}
+                      strokeDashoffset={dashOffset}
+                    />
+                  </g>
+                )
+                return acc
+              },
+              { offset: 0, elements: [] }
+            ).elements}
+          </svg>
+        </div>
+        <div className="flex max-h-48 flex-col gap-1.5 overflow-y-auto">
+          {data.map((d, i) => {
+            const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0'
+            const tooltip = `${d.name}: ${d.value} (${pct}% of total)`
+            return (
+              <div
+                key={i}
+                className="flex cursor-help items-center gap-2 text-sm"
+                title={tooltip}
+              >
+                <span
+                  className="h-3.5 w-3.5 shrink-0 rounded"
+                  style={{ backgroundColor: d.color }}
+                  aria-hidden
+                />
+                <span className="truncate text-slate-700">
+                  {d.name}: {d.value}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -148,6 +224,68 @@ export default function AdminSchoolsPage() {
           Add school
         </button>
       </div>
+
+      {!loading && (
+        <>
+          <div className="mb-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div
+              className="cursor-help rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-slate-300"
+              title="Number of schools registered in the system. Students can select from this list when registering for events."
+            >
+              <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                <Building2 className="h-5 w-5" aria-hidden />
+              </div>
+              <p className="text-sm font-medium text-slate-500">Total schools</p>
+              <p className="mt-1 text-3xl font-bold text-slate-900">{list.length}</p>
+            </div>
+            <div
+              className="cursor-help rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-slate-300"
+              title="Total event registrations across all events. Each student can register for multiple events."
+            >
+              <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
+                <Users className="h-5 w-5" aria-hidden />
+              </div>
+              <p className="text-sm font-medium text-slate-500">Total participants</p>
+              <p className="mt-1 text-3xl font-bold text-slate-900">{totalParticipants}</p>
+            </div>
+            <div
+              className="cursor-help rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-slate-300"
+              title="Participants who secured 1st–20th position in any event. Winners are featured in event results."
+            >
+              <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+                <Award className="h-5 w-5" aria-hidden />
+              </div>
+              <p className="text-sm font-medium text-slate-500">Total winners</p>
+              <p className="mt-1 text-3xl font-bold text-slate-900">{totalWinners}</p>
+            </div>
+          </div>
+
+          <div className="mb-8 grid gap-8 lg:grid-cols-2">
+            <div
+              className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm"
+              title="Distribution of event registrations across schools. Hover over segments or legend for details."
+            >
+              <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-500">
+                Registrations by school
+              </h3>
+              {renderPieChart(registrationsBySchool, totalParticipants) ?? (
+                <p className="py-8 text-center text-sm text-slate-500">No registration data yet.</p>
+              )}
+            </div>
+            <div
+              className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm"
+              title="Distribution of winners (1st–20th) across schools. Hover over segments or legend for details."
+            >
+              <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-500">
+                Winners by school
+              </h3>
+              {renderPieChart(winnersBySchool, totalWinners) ?? (
+                <p className="py-8 text-center text-sm text-slate-500">No winner data yet.</p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {error && (
         <div className="mb-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
@@ -189,6 +327,12 @@ export default function AdminSchoolsPage() {
                   School name
                 </th>
                 <th className="px-5 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Participants
+                </th>
+                <th className="px-5 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Winners
+                </th>
+                <th className="px-5 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Actions
                 </th>
               </tr>
@@ -201,6 +345,12 @@ export default function AdminSchoolsPage() {
                       <Building2 className="h-5 w-5 shrink-0 text-slate-400" aria-hidden />
                       <span className="font-medium text-slate-900">{school.name}</span>
                     </div>
+                  </td>
+                  <td className="px-5 py-4 text-right text-slate-600">
+                    {school.participants ?? 0}
+                  </td>
+                  <td className="px-5 py-4 text-right text-slate-600">
+                    {school.winners ?? 0}
                   </td>
                   <td className="px-5 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
