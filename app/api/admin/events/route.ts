@@ -47,7 +47,9 @@ export async function GET() {
       const tb = new Date(b.createdAt).getTime()
       return tb - ta
     })
-    return NextResponse.json(events)
+    return NextResponse.json(events, {
+      headers: { 'Cache-Control': 'private, s-maxage=60, stale-while-revalidate=120' },
+    })
   } catch (error) {
     console.error('GET /api/admin/events error:', error)
     return NextResponse.json({ error: 'Failed to fetch events' }, { status: 500 })

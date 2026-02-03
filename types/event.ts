@@ -25,6 +25,8 @@ export type Event = {
   categoryAmounts?: Record<string, number>
   /** ISO date when awardee results were published; null = not published */
   resultsPublishedAt?: string | null
+  /** Contact persons for the event (name, phone, position) */
+  contactPersons?: { name: string; phone: string; position?: string }[]
   createdAt: Date | string
   updatedAt: Date | string
   createdBy: string

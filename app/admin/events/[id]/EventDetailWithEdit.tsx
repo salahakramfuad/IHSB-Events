@@ -9,6 +9,7 @@ import {
   Calendar,
   Clock,
   MapPin,
+  Phone,
   Users,
   Pencil,
   User,
@@ -25,6 +26,7 @@ import {
 import type { Event } from '@/types/event'
 import type { Registration } from '@/types/registration'
 import EventLogo from '@/components/EventLogo'
+import { getOptimizedImageUrl } from '@/lib/cloudinary'
 import { parseEventDates, formatEventDates, isEventUpcoming } from '@/lib/dateUtils'
 import dynamic from 'next/dynamic'
 import ExportRegistrationsButton from './registrations/ExportRegistrationsButton'
@@ -184,7 +186,7 @@ export default function EventDetailWithEdit({
         {hasImage && (
           <div className="relative aspect-[21/9] w-full overflow-hidden bg-slate-100">
             <Image
-              src={event.image!}
+              src={getOptimizedImageUrl(event.image, { w: 1024 }) ?? event.image!}
               alt={event.title}
               fill
               className="object-cover"
@@ -271,6 +273,51 @@ export default function EventDetailWithEdit({
                 <dd className="text-slate-900">{venue}</dd>
               </div>
             </div>
+            {Array.isArray(event.contactPersons) &&
+              event.contactPersons.length > 0 &&
+              event.contactPersons
+                .filter((p) => (p.name ?? '').trim() || (p.phone ?? '').trim())
+                .map((cp, i) => (
+                  <div key={i} className="flex items-start gap-3 sm:col-span-2">
+                    <Phone
+                      className="mt-0.5 h-5 w-5 shrink-0 text-slate-400"
+                      aria-hidden
+                    />
+                    <div>
+                      <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                        Contact
+                      </dt>
+                      <dd className="text-slate-900">
+                        {cp.name?.trim() ? (
+                          <>
+                            {cp.name.trim()}
+                            {cp.position?.trim() && (
+                              <span className="ml-1.5 text-slate-500">({cp.position.trim()})</span>
+                            )}
+                            {cp.phone?.trim() && (
+                              <a
+                                href={`tel:${cp.phone.trim().replace(/\D/g, '')}`}
+                                className="ml-2 text-indigo-600 hover:underline"
+                              >
+                                {cp.phone.trim()}
+                              </a>
+                            )}
+                          </>
+                        ) : (
+                          cp.phone?.trim() && (
+                            <a
+                              href={`tel:${cp.phone.trim().replace(/\D/g, '')}`}
+                              className="text-indigo-600 hover:underline"
+                            >
+                              {cp.position?.trim() ? `${cp.position.trim()}: ` : ''}
+                              {cp.phone.trim()}
+                            </a>
+                          )
+                        )}
+                      </dd>
+                    </div>
+                  </div>
+                ))}
           </dl>
           {event.categories && event.categories.length > 0 && (
             <div className="mt-6 pt-6 border-t border-slate-200">

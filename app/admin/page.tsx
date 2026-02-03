@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { cookies } from 'next/headers'
+import { getOptimizedImageUrl } from '@/lib/cloudinary'
 import { Calendar, Users, ArrowRight, MapPin, Clock, Banknote } from 'lucide-react'
 import { adminDb } from '@/lib/firebase-admin'
 import { getCurrentAdminProfile } from '@/lib/get-admin'
@@ -48,7 +49,7 @@ export default async function AdminDashboardPage() {
   // Fetch profile and events in parallel for faster initial load
   const [profile, eventsSnap] = await Promise.all([
     getCurrentAdminProfile(token),
-    adminDb ? adminDb.collection('events').get() : Promise.resolve(null),
+    adminDb ? adminDb.collection('events').orderBy('createdAt', 'desc').limit(100).get() : Promise.resolve(null),
   ])
   const displayName = profile?.displayName?.trim() || profile?.email?.split('@')[0] || ''
 
@@ -153,7 +154,7 @@ export default async function AdminDashboardPage() {
               {(nextUpcomingEvent.image || nextUpcomingEvent.logo) && (
                 <div className="relative h-24 w-full shrink-0 overflow-hidden rounded-xl bg-slate-100 sm:h-20 sm:w-32">
                   <Image
-                    src={nextUpcomingEvent.image || nextUpcomingEvent.logo!}
+                    src={getOptimizedImageUrl(nextUpcomingEvent.image || nextUpcomingEvent.logo!, { w: 128 }) ?? (nextUpcomingEvent.image || nextUpcomingEvent.logo!)}
                     alt=""
                     fill
                     className="object-cover"

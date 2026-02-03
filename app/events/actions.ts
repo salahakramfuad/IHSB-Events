@@ -1,6 +1,7 @@
 'use server'
 
 import { cache } from 'react'
+import { unstable_cache } from 'next/cache'
 import type { DocumentSnapshot } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase-admin'
 import { Event } from '@/types/event'
@@ -40,25 +41,31 @@ function toEvent(doc: DocumentSnapshot): Event {
   } as Event
 }
 
-export const getPublicEvents = cache(async (): Promise<Event[]> => {
+async function fetchPublicEvents(): Promise<Event[]> {
   if (!adminDb) return []
   try {
-    const snapshot = await adminDb.collection('events').get()
+    const snapshot = await adminDb
+      .collection('events')
+      .orderBy('createdAt', 'desc')
+      .limit(100)
+      .get()
     const events: Event[] = []
     snapshot.forEach((doc) => events.push(toEvent(doc)))
-    events.sort((a, b) => {
-      const ta = new Date(a.createdAt).getTime()
-      const tb = new Date(b.createdAt).getTime()
-      return tb - ta
-    })
     return events
   } catch (error) {
     console.error('Error fetching events:', error)
     return []
   }
-})
+}
 
-export const getPublicEvent = cache(async (id: string): Promise<Event | null> => {
+export const getPublicEvents = cache(
+  unstable_cache(fetchPublicEvents, ['public-events'], {
+    revalidate: 60,
+    tags: ['events'],
+  })
+)
+
+async function fetchPublicEvent(id: string): Promise<Event | null> {
   if (!adminDb) return null
   try {
     const doc = await adminDb.collection('events').doc(id).get()
@@ -68,38 +75,59 @@ export const getPublicEvent = cache(async (id: string): Promise<Event | null> =>
     console.error('Error fetching event:', error)
     return null
   }
+}
+
+export const getPublicEvent = cache(async (id: string): Promise<Event | null> => {
+  return unstable_cache(
+    () => fetchPublicEvent(id),
+    ['public-event', id],
+    { revalidate: 60, tags: ['events', `event-${id}`] }
+  )()
 })
+
+async function fetchPublicEventFeaturedRegistrations(
+  eventId: string
+): Promise<FeaturedApplicant[]> {
+  if (!adminDb) return []
+  try {
+    const snapshot = await adminDb
+      .collection('events')
+      .doc(eventId)
+      .collection('registrations')
+      .where('position', '>=', 1)
+      .where('position', '<=', 20)
+      .limit(50)
+      .get()
+    const list: FeaturedApplicant[] = []
+    snapshot.forEach((doc) => {
+      const data = doc.data()
+      const pos = data.position
+      const hasResultNotified = data.resultNotifiedAt != null
+      if (hasResultNotified) {
+        const regId = data.registrationId ?? doc.id
+        list.push({
+          position: pos,
+          name: (data.name ?? data.fullName ?? data.studentName ?? regId ?? '').trim() || 'Awardee',
+          school: data.school ?? undefined,
+          registrationId: regId,
+          category: data.category ?? undefined,
+        })
+      }
+    })
+    list.sort((a, b) => a.position - b.position)
+    return list
+  } catch (error) {
+    console.error('Error fetching featured registrations:', error)
+    return []
+  }
+}
 
 export const getPublicEventFeaturedRegistrations = cache(
   async (eventId: string): Promise<FeaturedApplicant[]> => {
-    if (!adminDb) return []
-    try {
-      const snapshot = await adminDb
-        .collection('events')
-        .doc(eventId)
-        .collection('registrations')
-        .get()
-      const list: FeaturedApplicant[] = []
-      snapshot.forEach((doc) => {
-        const data = doc.data()
-        const pos = data.position
-        const hasResultNotified = data.resultNotifiedAt != null
-        if (typeof pos === 'number' && pos >= 1 && pos <= 20 && hasResultNotified) {
-          const regId = data.registrationId ?? doc.id
-          list.push({
-            position: pos,
-            name: (data.name ?? data.fullName ?? data.studentName ?? regId ?? '').trim() || 'Awardee',
-            school: data.school ?? undefined,
-            registrationId: regId,
-            category: data.category ?? undefined,
-          })
-        }
-      })
-      list.sort((a, b) => a.position - b.position)
-      return list
-    } catch (error) {
-      console.error('Error fetching featured registrations:', error)
-      return []
-    }
+    return unstable_cache(
+      () => fetchPublicEventFeaturedRegistrations(eventId),
+      ['featured-regs', eventId],
+      { revalidate: 60, tags: ['events', `event-${eventId}`] }
+    )()
   }
 )

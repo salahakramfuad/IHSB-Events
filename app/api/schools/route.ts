@@ -66,7 +66,9 @@ export async function GET(request: NextRequest) {
         return { ...s, participants: sStats.participants, winners: sStats.winners }
       })
     }
-    return NextResponse.json(schools)
+    return NextResponse.json(schools, {
+      headers: { 'Cache-Control': 'private, s-maxage=60, stale-while-revalidate=120' },
+    })
   } catch (error) {
     console.error('GET /api/schools error:', error)
     return NextResponse.json({ error: 'Failed to fetch schools' }, { status: 500 })

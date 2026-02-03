@@ -1,12 +1,12 @@
 'use server'
 
-import type { DocumentSnapshot } from 'firebase-admin/firestore'
+import type { DocumentReference, DocumentSnapshot } from 'firebase-admin/firestore'
 import { cookies } from 'next/headers'
 import { adminDb } from '@/lib/firebase-admin'
 import { getCurrentAdminProfile } from '@/lib/get-admin'
 import type { Event } from '@/types/event'
 import type { Registration } from '@/types/registration'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { sendAwardeeResultEmail } from '@/lib/brevo'
 import { ensureSchoolExists } from '@/lib/schools'
 
@@ -75,6 +75,92 @@ function toEvent(doc: DocumentSnapshot): Event {
   } as Event
 }
 
+export type SchoolWithStats = {
+  id: string
+  name: string
+  createdAt: string
+  participants?: number
+  winners?: number
+}
+
+async function getSchoolStatsFromDb(
+  eventId?: string | null
+): Promise<Record<string, { participants: number; winners: number }>> {
+  if (!adminDb) return {}
+  const stats: Record<string, { participants: number; winners: number }> = {}
+  let eventRefs: DocumentReference[]
+  if (eventId?.trim()) {
+    const eventDoc = await adminDb.collection('events').doc(eventId.trim()).get()
+    if (!eventDoc.exists) return {}
+    eventRefs = [eventDoc.ref]
+  } else {
+    const eventsSnap = await adminDb.collection('events').get()
+    eventRefs = eventsSnap.docs.map((d) => d.ref)
+  }
+  for (const ref of eventRefs) {
+    const regsSnap = await ref.collection('registrations').get()
+    for (const regDoc of regsSnap.docs) {
+      const data = regDoc.data()
+      const school = (data.school ?? '').trim() || 'Unknown'
+      if (!stats[school]) stats[school] = { participants: 0, winners: 0 }
+      stats[school].participants += 1
+      const pos = data.position
+      if (typeof pos === 'number' && pos >= 1 && pos <= 20) {
+        stats[school].winners += 1
+      }
+    }
+  }
+  return stats
+}
+
+export async function getSchoolsWithStats(eventId?: string | null): Promise<SchoolWithStats[]> {
+  if (!adminDb) return []
+  try {
+    const snapshot = await adminDb.collection('schools').orderBy('name').get()
+    let schools: SchoolWithStats[] = snapshot.docs.map((doc) => {
+      const data = doc.data()
+      const createdAt = data.createdAt?.toDate?.() ?? data.createdAt
+      return {
+        id: doc.id,
+        name: data.name ?? '',
+        createdAt: createdAt instanceof Date ? createdAt.toISOString() : String(createdAt ?? ''),
+      }
+    })
+    const stats = await getSchoolStatsFromDb(eventId)
+    schools = schools.map((s) => {
+      const sStats = stats[s.name] ?? { participants: 0, winners: 0 }
+      return { ...s, participants: sStats.participants, winners: sStats.winners }
+    })
+    return schools
+  } catch (error) {
+    console.error('getSchoolsWithStats error:', error)
+    return []
+  }
+}
+
+export async function getAdmins(): Promise<
+  { list: { uid: string; email: string; role: string; displayName?: string; photoURL?: string }[]; forbidden: boolean }
+> {
+  const cookieStore = await cookies()
+  const token = cookieStore.get('auth-token')?.value
+  const profile = await getCurrentAdminProfile(token)
+  if (!profile || profile.role !== 'superAdmin') {
+    return { list: [], forbidden: true }
+  }
+  const { getAdminList } = await import('@/lib/get-admin')
+  const list = await getAdminList()
+  return {
+    list: list.map((a) => ({
+      uid: a.uid,
+      email: a.email,
+      role: a.role,
+      displayName: a.displayName,
+      photoURL: a.photoURL,
+    })),
+    forbidden: false,
+  }
+}
+
 export async function getAdminEvents(): Promise<Event[]> {
   if (!adminDb) return []
   try {
@@ -121,6 +207,7 @@ export async function createEvent(
     isPaid?: boolean
     amount?: number
     categoryAmounts?: Record<string, number>
+    contactPersons?: { name: string; phone: string; position?: string }[]
     createdBy?: string
   }
 ): Promise<{ success: boolean; id?: string; error?: string }> {
@@ -154,6 +241,18 @@ export async function createEvent(
         data.categoryAmounts && Object.keys(data.categoryAmounts).length > 0
           ? data.categoryAmounts
           : null,
+      contactPersons:
+        Array.isArray(data.contactPersons) && data.contactPersons.length > 0
+          ? data.contactPersons
+              .filter(
+                (p) => p && (String(p.name ?? '').trim() || String(p.phone ?? '').trim())
+              )
+              .map((p) => ({
+                name: String(p.name ?? '').trim(),
+                phone: String(p.phone ?? '').trim(),
+                position: String(p.position ?? '').trim() || undefined,
+              }))
+          : null,
       createdBy,
       createdByName,
       createdAt: now,
@@ -162,6 +261,7 @@ export async function createEvent(
     revalidatePath('/admin')
     revalidatePath('/admin/events')
     revalidatePath('/')
+    revalidateTag('events', 'max')
     return { success: true, id: ref.id }
   } catch (error) {
     console.error('Error creating event:', error)
@@ -186,6 +286,7 @@ export async function updateEvent(
     isPaid: boolean
     amount: number
     categoryAmounts: Record<string, number>
+    contactPersons: { name: string; phone: string; position?: string }[]
   }>
 ): Promise<{ success: boolean; error?: string }> {
   if (!adminDb) return { success: false, error: 'Database not available' }
@@ -211,6 +312,17 @@ export async function updateEvent(
       } else if (k === 'categoryAmounts') {
         update[k] =
           v && typeof v === 'object' && Object.keys(v).length > 0 ? v : null
+      } else if (k === 'contactPersons') {
+        const arr = Array.isArray(v)
+          ? (v as { name?: string; phone?: string; position?: string }[])
+            .filter((p) => p && typeof p === 'object' && (String(p.name ?? '').trim() || String(p.phone ?? '').trim()))
+            .map((p) => ({
+              name: String(p.name ?? '').trim(),
+              phone: String(p.phone ?? '').trim(),
+              position: String(p.position ?? '').trim() || undefined,
+            }))
+          : []
+        update[k] = arr.length > 0 ? arr : null
       } else {
         update[k] = v
       }
@@ -221,6 +333,8 @@ export async function updateEvent(
     revalidatePath(`/admin/events/${id}`)
     revalidatePath('/')
     revalidatePath(`/${id}`)
+    revalidateTag('events', 'max')
+    revalidateTag(`event-${id}`, 'max')
     return { success: true }
   } catch (error) {
     console.error('Error updating event:', error)
@@ -244,6 +358,8 @@ export async function deleteEvent(id: string): Promise<{ success: boolean; error
     revalidatePath('/admin')
     revalidatePath('/admin/events')
     revalidatePath('/')
+    revalidateTag('events', 'max')
+    revalidateTag(`event-${id}`, 'max')
     return { success: true }
   } catch (error) {
     console.error('Error deleting event:', error)
@@ -508,6 +624,7 @@ export async function notifySingleAwardee(
     revalidatePath(`/admin/events/${eventId}`)
     revalidatePath(`/admin/events/${eventId}/registrations`)
     revalidatePath(`/${eventId}`)
+    revalidateTag(`event-${eventId}`, 'max')
 
     return { success: true }
   } catch (error) {
@@ -570,6 +687,8 @@ export async function publishEventResults(
     revalidatePath(`/admin/events/${eventId}`)
     revalidatePath(`/admin/events/${eventId}/registrations`)
     revalidatePath(`/${eventId}`)
+    revalidateTag('events', 'max')
+    revalidateTag(`event-${eventId}`, 'max')
 
     const firstDate = eventData.date
     let dateValue = firstDate

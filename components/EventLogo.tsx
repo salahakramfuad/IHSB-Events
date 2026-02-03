@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import { getOptimizedImageUrl } from '@/lib/cloudinary'
 
 function getInitials(title: string): string {
   const trimmed = title.trim()
@@ -49,7 +50,7 @@ export default function EventLogo({
         className={`relative shrink-0 overflow-hidden rounded-xl bg-white shadow-sm ${dims.container} ${className}`}
       >
         <Image
-          src={logo!}
+          src={getOptimizedImageUrl(logo, { w: dims.img, h: dims.img }) ?? logo!}
           alt={`${title} logo`}
           width={dims.img}
           height={dims.img}

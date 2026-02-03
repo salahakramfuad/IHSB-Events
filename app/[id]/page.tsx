@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { Metadata } from 'next'
 import dynamic from 'next/dynamic'
-import { Calendar, Clock, MapPin, ArrowLeft, Award, Hash } from 'lucide-react'
+import { Suspense } from 'react'
+import { Calendar, Clock, MapPin, ArrowLeft, Award, Hash, Phone } from 'lucide-react'
 import { getPublicEvent, getPublicEventFeaturedRegistrations } from '@/app/events/actions'
 import { notFound } from 'next/navigation'
 import EventLogo from '@/components/EventLogo'
@@ -22,12 +23,98 @@ import { parseEventDates, formatEventDates, hasEventPassed } from '@/lib/dateUti
 import { hexToLightBg } from '@/lib/colorUtils'
 import PublicHeader from '@/components/PublicHeader'
 import EventDetailTheme from '@/components/EventDetailTheme'
+import type { Event } from '@/types/event'
+import type { FeaturedApplicant } from '@/types/registration'
 
 function getEventImageUrl(imageUrl?: string): string | null {
   if (!imageUrl?.trim()) return null
   const trimmed = imageUrl.trim()
   if (trimmed.startsWith('/') || trimmed.startsWith('http')) return trimmed
   return null
+}
+
+async function AwardeesSection({ eventId, event }: { eventId: string; event: Event }) {
+  const featured = await getPublicEventFeaturedRegistrations(eventId)
+  if (featured.length === 0) return null
+  const hasCategories = Array.isArray(event.categories) && event.categories.length > 0
+  const grouped = hasCategories
+    ? featured.reduce<Record<string, FeaturedApplicant[]>>((acc, a) => {
+        const cat = a.category?.trim() || 'Uncategorized'
+        if (!acc[cat]) acc[cat] = []
+        acc[cat].push(a)
+        return acc
+      }, {})
+    : null
+  const catOrder = event.categories ?? []
+  const allCatKeys = grouped ? Object.keys(grouped) : []
+  const categories = grouped
+    ? [...catOrder.filter((c) => allCatKeys.includes(c)), ...allCatKeys.filter((k) => !catOrder.includes(k))]
+    : [null]
+  const renderAwardee = (a: FeaturedApplicant) => {
+    const isGold = a.position === 1
+    const isSilver = a.position === 2
+    const isBronze = a.position === 3
+    const rowBg = isGold
+      ? 'bg-amber-50 border-amber-200/80'
+      : isSilver
+        ? 'bg-slate-100 border-slate-300/80'
+        : isBronze
+          ? 'bg-amber-100/90 border-amber-300/80'
+          : 'border-slate-200/60'
+    const badgeBg = isGold
+      ? 'bg-amber-200 text-amber-900'
+      : isSilver
+        ? 'bg-slate-300 text-slate-800'
+        : isBronze
+          ? 'bg-amber-400/90 text-amber-950'
+          : 'bg-slate-100 text-slate-600'
+    return (
+      <li
+        key={`${a.position}-${a.name}-${a.registrationId}`}
+        className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${rowBg}`}
+      >
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${badgeBg}`}
+        >
+          {a.position === 1 ? '1st' : a.position === 2 ? '2nd' : a.position === 3 ? '3rd' : `${a.position}th`}
+        </span>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-slate-900">{a.name || a.registrationId || 'Awardee'}</span>
+            {a.registrationId && (
+              <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+                <Hash className="h-3 w-3" aria-hidden />
+                {a.registrationId}
+              </span>
+            )}
+          </div>
+          {a.school && <span className="text-sm text-slate-600">{a.school}</span>}
+        </div>
+      </li>
+    )
+  }
+  return (
+    <section className="rounded-2xl border border-[hsl(var(--event-accent)/0.15)] bg-white/95 p-6 shadow-sm backdrop-blur">
+      <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-900">
+        <Award className="h-5 w-5 text-[hsl(var(--event-accent))]" aria-hidden />
+        Awardees
+      </h2>
+      <div className="space-y-6">
+        {categories.map((cat) => {
+          const list = cat ? (grouped?.[cat] ?? []).sort((a, b) => a.position - b.position) : featured
+          if (list.length === 0) return null
+          return (
+            <div key={cat ?? 'all'}>
+              {cat && (
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-500">{cat}</h3>
+              )}
+              <ul className="space-y-2">{list.map(renderAwardee)}</ul>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
 }
 
 export async function generateMetadata({
@@ -55,10 +142,7 @@ export default async function EventDetailPage({
 }) {
   const { id } = await params
   const { payment: paymentStatus } = await searchParams
-  const [event, featured] = await Promise.all([
-    getPublicEvent(id),
-    getPublicEventFeaturedRegistrations(id),
-  ])
+  const event = await getPublicEvent(id)
   if (!event) notFound()
 
   const eventDates = parseEventDates(event.date)
@@ -107,95 +191,23 @@ export default async function EventDetailPage({
               </section>
             )}
 
-            {featured.length > 0 && (
-              <section className="rounded-2xl border border-[hsl(var(--event-accent)/0.15)] bg-white/95 p-6 shadow-sm backdrop-blur">
-                <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-900">
-                  <Award className="h-5 w-5 text-[hsl(var(--event-accent))]" aria-hidden />
-                  Awardees
-                </h2>
-                {(() => {
-                  const hasCategories = Array.isArray(event.categories) && event.categories.length > 0
-                  const grouped = hasCategories
-                    ? featured.reduce<Record<string, typeof featured>>((acc, a) => {
-                        const cat = a.category?.trim() || 'Uncategorized'
-                        if (!acc[cat]) acc[cat] = []
-                        acc[cat].push(a)
-                        return acc
-                      }, {})
-                    : null
-                  const catOrder = event.categories ?? []
-                  const allCatKeys = grouped ? Object.keys(grouped) : []
-                  const categories = grouped
-                    ? [...catOrder.filter((c) => allCatKeys.includes(c)), ...allCatKeys.filter((k) => !catOrder.includes(k))]
-                    : [null]
-                  const renderAwardee = (a: (typeof featured)[0]) => {
-                    const isGold = a.position === 1
-                    const isSilver = a.position === 2
-                    const isBronze = a.position === 3
-                    const rowBg = isGold
-                      ? 'bg-amber-50 border-amber-200/80'
-                      : isSilver
-                        ? 'bg-slate-100 border-slate-300/80'
-                        : isBronze
-                          ? 'bg-amber-100/90 border-amber-300/80'
-                          : 'border-slate-200/60'
-                    const badgeBg = isGold
-                      ? 'bg-amber-200 text-amber-900'
-                      : isSilver
-                        ? 'bg-slate-300 text-slate-800'
-                        : isBronze
-                          ? 'bg-amber-400/90 text-amber-950'
-                          : 'bg-slate-100 text-slate-600'
-                    return (
-                      <li
-                        key={`${a.position}-${a.name}-${a.registrationId}`}
-                        className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${rowBg}`}
-                      >
-                        <span
-                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${badgeBg}`}
-                        >
-                          {a.position === 1 ? '1st' : a.position === 2 ? '2nd' : a.position === 3 ? '3rd' : `${a.position}th`}
-                        </span>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-900">{a.name || a.registrationId || 'Awardee'}</span>
-                            {a.registrationId && (
-                              <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-                                <Hash className="h-3 w-3" aria-hidden />
-                                {a.registrationId}
-                              </span>
-                            )}
-                          </div>
-                          {a.school && (
-                            <span className="text-sm text-slate-600">{a.school}</span>
-                          )}
-                        </div>
-                      </li>
-                    )
-                  }
-                  return (
-                    <div className="space-y-6">
-                      {categories.map((cat) => {
-                        const list = cat ? (grouped?.[cat] ?? []).sort((a, b) => a.position - b.position) : featured
-                        if (list.length === 0) return null
-                        return (
-                          <div key={cat ?? 'all'}>
-                            {cat && (
-                              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-500">
-                                {cat}
-                              </h3>
-                            )}
-                            <ul className="space-y-2">
-                              {list.map(renderAwardee)}
-                            </ul>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )
-                })()}
-              </section>
-            )}
+            <Suspense
+              fallback={
+                <section className="rounded-2xl border border-[hsl(var(--event-accent)/0.15)] bg-white/95 p-6 shadow-sm backdrop-blur">
+                  <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-900">
+                    <Award className="h-5 w-5 text-[hsl(var(--event-accent))]" aria-hidden />
+                    Awardees
+                  </h2>
+                  <div className="space-y-2">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="h-14 animate-pulse rounded-xl bg-slate-100" />
+                    ))}
+                  </div>
+                </section>
+              }
+            >
+              <AwardeesSection eventId={id} event={event} />
+            </Suspense>
 
             <section className="rounded-2xl border border-[hsl(var(--event-accent)/0.15)] bg-white/95 p-6 shadow-sm backdrop-blur">
               <h2 className="mb-4 text-lg font-semibold text-slate-900">Event details</h2>
@@ -222,11 +234,62 @@ export default async function EventDetailPage({
                   </span>
                   <span>Venue: {venue}</span>
                 </li>
+                {Array.isArray(event.contactPersons) &&
+                  event.contactPersons.length > 0 &&
+                  event.contactPersons
+                    .filter((p) => (p.name ?? '').trim() || (p.phone ?? '').trim())
+                    .map((cp, i) => (
+                      <li key={i} className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--event-accent)/0.2)] text-[hsl(var(--event-accent))]">
+                          <Phone className="h-5 w-5" aria-hidden />
+                        </span>
+                        <span>
+                          {cp.name?.trim() ? (
+                            <>
+                              <span className="font-medium">{cp.name.trim()}</span>
+                              {cp.position?.trim() && (
+                                <span className="ml-1.5 text-slate-500">({cp.position.trim()})</span>
+                              )}
+                              {cp.phone?.trim() && (
+                                <a
+                                  href={`tel:${cp.phone.trim().replace(/\D/g, '')}`}
+                                  className="ml-2 text-slate-600 hover:text-[hsl(var(--event-accent))] hover:underline"
+                                >
+                                  {cp.phone.trim()}
+                                </a>
+                              )}
+                            </>
+                          ) : (
+                            cp.phone?.trim() && (
+                              <a
+                                href={`tel:${cp.phone.trim().replace(/\D/g, '')}`}
+                                className="text-slate-600 hover:text-[hsl(var(--event-accent))] hover:underline"
+                              >
+                                {cp.position?.trim() ? `${cp.position.trim()}: ` : ''}
+                                {cp.phone.trim()}
+                              </a>
+                            )
+                          )}
+                        </span>
+                      </li>
+                    ))}
               </ul>
             </section>
           </div>
 
           <div className="lg:col-span-1">
+            <Suspense
+              fallback={
+                <div className="animate-pulse rounded-2xl bg-white/95 p-6 shadow-sm backdrop-blur">
+                  <div className="h-8 w-3/4 rounded bg-slate-200" />
+                  <div className="mt-4 space-y-3">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="h-10 rounded bg-slate-100" />
+                    ))}
+                  </div>
+                </div>
+              }
+            >
             {hasPassed ? (
               <div className="rounded-2xl border border-[hsl(var(--event-accent)/0.15)] bg-white/95 p-6 text-center text-slate-600 shadow-sm backdrop-blur">
                 <p className="font-medium">This event has passed.</p>
@@ -282,6 +345,7 @@ export default async function EventDetailPage({
                 categoryAmounts={event.categoryAmounts}
               />
             )}
+            </Suspense>
           </div>
         </div>
       </EventDetailTheme>

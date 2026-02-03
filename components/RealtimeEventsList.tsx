@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Calendar, MapPin, ArrowRight, Search } from 'lucide-react'
 import type { Event } from '@/types/event'
+import { getOptimizedImageUrl } from '@/lib/cloudinary'
 import EventLogo from './EventLogo'
 import {
   isEventUpcoming,
@@ -49,7 +50,7 @@ function EventCard({ event }: { event: Event }) {
         {hasImage ? (
           <>
             <Image
-              src={event.image!}
+              src={getOptimizedImageUrl(event.image, { w: 600 }) ?? event.image!}
               alt={event.title}
               fill
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"

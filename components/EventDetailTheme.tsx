@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
+import { getOptimizedImageUrl } from '@/lib/cloudinary'
 
 const DEFAULT_ACCENT = '220 70% 50%' // fallback hsl (blue-ish)
 
@@ -121,7 +122,9 @@ export default function EventDetailTheme({ imageUrl, colorTheme, children }: Eve
     }
     if (!imageUrl || extracted.current) return
     extracted.current = true
-    getDominantHslFromImageUrl(imageUrl).then(setAccentHsl)
+    // Defer extraction so it doesn't block paint (LCP)
+    const id = setTimeout(() => getDominantHslFromImageUrl(imageUrl).then(setAccentHsl), 0)
+    return () => clearTimeout(id)
   }, [imageUrl, colorTheme])
 
   const style = {
@@ -136,7 +139,7 @@ export default function EventDetailTheme({ imageUrl, colorTheme, children }: Eve
         {imageUrl ? (
           <div className="relative aspect-[21/9] w-full overflow-hidden bg-slate-200 sm:aspect-[3/1]">
             <Image
-              src={imageUrl}
+              src={getOptimizedImageUrl(imageUrl, { w: 1920 }) ?? imageUrl}
               alt=""
               fill
               sizes="100vw"

@@ -19,7 +19,9 @@ import {
   Tag,
   ChevronDown,
   ChevronUp,
+  Phone,
 } from 'lucide-react'
+import { getOptimizedImageUrl } from '@/lib/cloudinary'
 import DatePicker from './DatePicker'
 import TimePicker from './TimePicker'
 
@@ -148,6 +150,11 @@ export default function EventForm({ event }: EventFormProps) {
     }
   )
   const [categoryInput, setCategoryInput] = useState('')
+  const [contactPersons, setContactPersons] = useState<{ name: string; phone: string; position: string }[]>(
+    Array.isArray(event?.contactPersons) && event.contactPersons.length > 0
+      ? event.contactPersons.map((p) => ({ name: p.name ?? '', phone: p.phone ?? '', position: p.position ?? '' }))
+      : []
+  )
   const [colorTheme, setColorTheme] = useState(
     event?.colorTheme?.startsWith('#') ? event.colorTheme : '#4f46e5'
   )
@@ -242,6 +249,20 @@ export default function EventForm({ event }: EventFormProps) {
     setCategoryAmounts((prev) => ({ ...prev, [name]: value }))
   }
 
+  const addContactPerson = () => {
+    setContactPersons((prev) => [...prev, { name: '', phone: '', position: '' }])
+  }
+
+  const removeContactPerson = (index: number) => {
+    setContactPersons((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const updateContactPerson = (index: number, field: 'name' | 'phone' | 'position', value: string) => {
+    setContactPersons((prev) =>
+      prev.map((p, i) => (i === index ? { ...p, [field]: value } : p))
+    )
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -282,6 +303,12 @@ export default function EventForm({ event }: EventFormProps) {
                   categories.map((c) => [c, categoryAmounts[c] ?? 0])
                 )
               : undefined,
+          contactPersons:
+            contactPersons.filter((p) => p.name.trim() || p.phone.trim()).length > 0
+              ? contactPersons
+                  .filter((p) => p.name.trim() || p.phone.trim())
+                  .map((p) => ({ name: p.name.trim(), phone: p.phone.trim(), position: p.position.trim() || undefined }))
+              : undefined,
         })
         if (result.success) {
           router.push('/admin/events')
@@ -309,6 +336,12 @@ export default function EventForm({ event }: EventFormProps) {
               ? Object.fromEntries(
                   categories.map((c) => [c, categoryAmounts[c] ?? 0])
                 )
+              : undefined,
+          contactPersons:
+            contactPersons.filter((p) => p.name.trim() || p.phone.trim()).length > 0
+              ? contactPersons
+                  .filter((p) => p.name.trim() || p.phone.trim())
+                  .map((p) => ({ name: p.name.trim(), phone: p.phone.trim(), position: p.position.trim() || undefined }))
               : undefined,
         })
         if (result.success && result.id) {
@@ -439,6 +472,60 @@ export default function EventForm({ event }: EventFormProps) {
           </div>
         </Section>
 
+        {/* Contact Persons */}
+        <Section title="Contact Persons" icon={Phone} collapsible={collapsible} defaultOpen={contactPersons.length > 0 || isEdit}>
+          <div className="space-y-4">
+            <FormField
+              label="Contact persons"
+              hint="Add people visitors can contact about this event (name, position, phone number)"
+            >
+              <div className="space-y-3">
+                {contactPersons.map((cp, index) => (
+                  <div key={index} className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/50 p-3">
+                    <input
+                      type="text"
+                      value={cp.name}
+                      onChange={(e) => updateContactPerson(index, 'name', e.target.value)}
+                      placeholder="Name"
+                      className="flex-1 min-w-[120px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="text"
+                      value={cp.position}
+                      onChange={(e) => updateContactPerson(index, 'position', e.target.value)}
+                      placeholder="Position (e.g. Coordinator)"
+                      className="flex-1 min-w-[120px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="tel"
+                      value={cp.phone}
+                      onChange={(e) => updateContactPerson(index, 'phone', e.target.value)}
+                      placeholder="Phone (e.g. 01XXXXXXXXX)"
+                      className="flex-1 min-w-[120px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeContactPerson(index)}
+                      className="rounded-lg p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+                      aria-label="Remove contact"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addContactPerson}
+                  className="inline-flex items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-700"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add contact person
+                </button>
+              </div>
+            </FormField>
+          </div>
+        </Section>
+
         {/* Media */}
         <Section title="Media" icon={ImageIcon} collapsible={collapsible} defaultOpen={!!(formData.image || formData.logo) || isEdit}>
           <div className={isEdit ? 'space-y-5' : 'space-y-6'}>
@@ -520,7 +607,7 @@ export default function EventForm({ event }: EventFormProps) {
                   <div className="flex flex-wrap items-center gap-4">
                     <div className="relative inline-block overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
                       <Image
-                        src={formData.logo}
+                        src={getOptimizedImageUrl(formData.logo, { w: 80, h: 80 }) ?? formData.logo}
                         alt="Event logo"
                         width={80}
                         height={80}
