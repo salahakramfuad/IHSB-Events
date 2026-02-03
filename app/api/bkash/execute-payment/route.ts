@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase-admin'
 import { executePayment } from '@/lib/bkash'
 import { sendIHSBConfirmationEmail } from '@/lib/brevo'
 import { generateRegistrationId } from '@/lib/registrationId'
+import { ensureSchoolExists } from '@/lib/schools'
 import type { Event } from '@/types/event'
 
 function normalizeEmail(email: string): string {
@@ -93,6 +94,8 @@ export async function POST(request: NextRequest) {
         trxID: result.trxID,
       })
     }
+
+    await ensureSchoolExists(school.trim())
 
     const registrationId = generateRegistrationId()
     const regRef = regsRef.doc(registrationId)

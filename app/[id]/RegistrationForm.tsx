@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { UserPlus, CheckCircle, AlertCircle } from 'lucide-react'
+import SchoolCombobox from '@/components/SchoolCombobox'
 
 interface RegistrationFormProps {
   eventId: string
@@ -221,15 +222,15 @@ export default function RegistrationForm({ eventId, categories = [], isPaid, amo
           <label htmlFor="school" className="mb-1.5 block text-sm font-medium text-slate-700">
             School <span className="text-red-500">*</span>
           </label>
-          <input
+          <SchoolCombobox
             id="school"
-            name="school"
-            type="text"
-            required
             value={formData.school}
-            onChange={handleChange}
-            className={inputClass}
-            placeholder="School name"
+            onChange={(v) => {
+              setFormData((prev) => ({ ...prev, school: v }))
+              if (status === 'error') setStatus('idle')
+            }}
+            placeholder="Select or type school name"
+            required
           />
         </div>
         <div>

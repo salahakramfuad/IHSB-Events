@@ -4,12 +4,13 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { LayoutDashboard, Calendar, LogOut, User, Users } from 'lucide-react'
+import { LayoutDashboard, Calendar, LogOut, User, Users, Building2 } from 'lucide-react'
 import { clsx } from 'clsx'
 
 const navItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/events', label: 'Events', icon: Calendar },
+  { href: '/admin/schools', label: 'Schools', icon: Building2 },
 ]
 
 type Profile = { role?: string; email?: string; displayName?: string; photoURL?: string }

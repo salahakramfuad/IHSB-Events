@@ -39,6 +39,12 @@ service cloud.firestore {
       allow update, delete: if request.auth != null;
     }
 
+    // Schools - read/create for all (registration flow); update/delete for admins
+    match /schools/{schoolId} {
+      allow read, create: if true;
+      allow update, delete: if request.auth != null && (request.auth.token.role == 'admin' || request.auth.token.role == 'superAdmin');
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

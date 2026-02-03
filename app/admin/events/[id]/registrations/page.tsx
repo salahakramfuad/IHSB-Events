@@ -2,6 +2,7 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { getAdminEvent, getEventRegistrations, getCurrentAdminProfileInServer } from '@/app/admin/actions'
 import ExportRegistrationsButton from './ExportRegistrationsButton'
+import EventStatsSection from './EventStatsSection'
 import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 
@@ -43,6 +44,7 @@ export default async function EventRegistrationsPage({
         </div>
         <ExportRegistrationsButton eventId={id} eventTitle={event.title} registrations={registrations} />
       </div>
+      <EventStatsSection registrations={registrations} />
       <RegistrationsTableWithSearch
         eventId={id}
         event={event}

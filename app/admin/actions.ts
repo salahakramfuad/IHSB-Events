@@ -8,6 +8,7 @@ import type { Event } from '@/types/event'
 import type { Registration } from '@/types/registration'
 import { revalidatePath } from 'next/cache'
 import { sendAwardeeResultEmail } from '@/lib/brevo'
+import { ensureSchoolExists } from '@/lib/schools'
 
 async function getCurrentUserId(): Promise<string> {
   const cookieStore = await cookies()
@@ -377,7 +378,10 @@ export async function updateRegistration(
     const update: Record<string, unknown> = {}
     if (data.name != null && data.name.trim()) update.name = data.name.trim()
     if (data.phone != null) update.phone = String(data.phone).trim()
-    if (data.school != null && data.school.trim()) update.school = data.school.trim()
+    if (data.school != null && data.school.trim()) {
+      await ensureSchoolExists(data.school.trim())
+      update.school = data.school.trim()
+    }
     if (data.note != null) update.note = String(data.note).trim()
     if (data.category != null) update.category = String(data.category).trim() || null
 

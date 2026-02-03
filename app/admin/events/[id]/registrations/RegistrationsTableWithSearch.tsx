@@ -9,6 +9,7 @@ import type { Registration } from '@/types/registration'
 import type { Event } from '@/types/event'
 import { updateRegistrationPosition, notifySingleAwardee, updateRegistration, deleteRegistration } from '@/app/admin/actions'
 import { generateRegistrationPDF, generateAllRegistrationsPDF } from '@/lib/generateRegistrationPDF'
+import SchoolCombobox from '@/components/SchoolCombobox'
 
 const POSITION_OPTIONS = Array.from({ length: 20 }, (_, i) => i + 1)
 
@@ -61,6 +62,7 @@ export default function RegistrationsTableWithSearch({
   const [notifyModal, setNotifyModal] = useState<Registration | null>(null)
   const [notifyLoading, setNotifyLoading] = useState(false)
   const [editModal, setEditModal] = useState<Registration | null>(null)
+  const [editSchoolValue, setEditSchoolValue] = useState('')
   const [editLoading, setEditLoading] = useState(false)
   const [deleteModal, setDeleteModal] = useState<Registration | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
@@ -188,6 +190,7 @@ export default function RegistrationsTableWithSearch({
 
   const handleEditClick = (reg: Registration) => {
     setEditModal(reg)
+    setEditSchoolValue(reg.school ?? '')
   }
 
   const handleDeleteClick = (reg: Registration) => {
@@ -611,13 +614,13 @@ export default function RegistrationsTableWithSearch({
                 <label htmlFor="edit-school" className="mb-1 block text-sm font-medium text-slate-700">
                   School *
                 </label>
-                <input
+                <input type="hidden" name="school" value={editSchoolValue} />
+                <SchoolCombobox
                   id="edit-school"
-                  name="school"
-                  type="text"
+                  value={editSchoolValue}
+                  onChange={setEditSchoolValue}
+                  placeholder="Select or type school name"
                   required
-                  defaultValue={editModal.school}
-                  className={inputClass}
                 />
               </div>
               {eventCategories.length > 0 && (

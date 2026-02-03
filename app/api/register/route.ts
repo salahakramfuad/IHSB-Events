@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase-admin'
 import { generateRegistrationId } from '@/lib/registrationId'
 import { sendIHSBConfirmationEmail } from '@/lib/brevo'
+import { ensureSchoolExists } from '@/lib/schools'
 import type { Event } from '@/types/event'
 
 function normalizeEmail(email: string): string {
@@ -68,6 +69,8 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       )
     }
+
+    await ensureSchoolExists(school.trim())
 
     const registrationId = generateRegistrationId()
     const now = new Date()
