@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     const eventData = eventSnap.data()!
-    if (!eventData.isPaid || !eventData.amount || eventData.amount <= 0) {
+    if (!eventData.isPaid) {
       return NextResponse.json({ error: 'Event is not a paid event' }, { status: 400 })
     }
 
@@ -57,6 +57,23 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
+    }
+
+    const categoryAmounts = eventData.categoryAmounts && typeof eventData.categoryAmounts === 'object'
+      ? eventData.categoryAmounts as Record<string, number>
+      : null
+    const baseAmount = typeof eventData.amount === 'number' ? eventData.amount : 0
+    let amount: number
+    if (eventCategories.length > 0 && category && categoryAmounts && categoryAmounts[category] !== undefined) {
+      amount = Number(categoryAmounts[category]) ?? 0
+    } else {
+      amount = baseAmount
+    }
+    if (amount <= 0) {
+      return NextResponse.json(
+        { error: 'This category is free. Please complete registration without payment.' },
+        { status: 400 }
+      )
     }
 
     const normalizedEmail = normalizeEmail(email)
@@ -77,7 +94,6 @@ export async function POST(request: NextRequest) {
 
     const merchantInvoiceNumber = `IHSB-${eventId}-${clientGeneratedId}`
 
-    const amount = Number(eventData.amount)
     const amountStr = Number.isInteger(amount) ? String(amount) : amount.toFixed(2)
 
     const result = await createPayment({

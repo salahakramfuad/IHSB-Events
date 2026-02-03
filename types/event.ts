@@ -19,8 +19,10 @@ export type Event = {
   colorTheme?: string
   /** If true, registration requires bKash payment */
   isPaid?: boolean
-  /** Amount in BDT (required when isPaid is true) */
+  /** Amount in BDT (used when isPaid and no categories, or as fallback) */
   amount?: number
+  /** Per-category amounts in BDT. When set, overrides amount for events with categories. Use 0 for free category. */
+  categoryAmounts?: Record<string, number>
   /** ISO date when awardee results were published; null = not published */
   resultsPublishedAt?: string | null
   createdAt: Date | string

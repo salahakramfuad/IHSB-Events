@@ -10,11 +10,30 @@ interface RegistrationFormProps {
   categories?: string[]
   /** If true, registration requires bKash payment */
   isPaid?: boolean
-  /** Amount in BDT (shown when isPaid) */
+  /** Amount in BDT (fallback when no categoryAmounts or no category selected) */
   amount?: number
+  /** Per-category amounts in BDT. Overrides amount when category is selected. Use 0 for free. */
+  categoryAmounts?: Record<string, number>
 }
 
-export default function RegistrationForm({ eventId, categories = [], isPaid, amount }: RegistrationFormProps) {
+function getEffectiveAmount(
+  category: string,
+  categoryAmounts: Record<string, number>,
+  fallbackAmount?: number
+): number {
+  if (category && categoryAmounts[category] !== undefined) {
+    return Number(categoryAmounts[category]) ?? 0
+  }
+  return typeof fallbackAmount === 'number' ? fallbackAmount : 0
+}
+
+export default function RegistrationForm({
+  eventId,
+  categories = [],
+  isPaid,
+  amount,
+  categoryAmounts = {},
+}: RegistrationFormProps) {
   const hasCategories = Array.isArray(categories) && categories.length > 0
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error' | 'redirecting'>('idle')
   const [message, setMessage] = useState('')
@@ -26,6 +45,13 @@ export default function RegistrationForm({ eventId, categories = [], isPaid, amo
     note: '',
     category: '',
   })
+
+  const effectiveAmount = getEffectiveAmount(
+    formData.category,
+    categoryAmounts,
+    amount
+  )
+  const requiresPayment = isPaid && effectiveAmount > 0
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
@@ -54,7 +80,7 @@ export default function RegistrationForm({ eventId, categories = [], isPaid, amo
     setStatus('loading')
     setMessage('')
     try {
-      if (isPaid && amount != null && amount > 0) {
+      if (requiresPayment) {
         setStatus('redirecting')
         setMessage('Redirecting to bKash…')
         const clientGeneratedId = `P${Date.now()}${Math.random().toString(36).slice(2, 8)}`
@@ -142,11 +168,19 @@ export default function RegistrationForm({ eventId, categories = [], isPaid, amo
         </span>
         <h3 className="text-lg font-semibold text-slate-900">Register for this event</h3>
       </div>
-      {isPaid && amount != null && amount > 0 && (
+      {isPaid && (effectiveAmount > 0 && (!hasCategories || formData.category) ? (
         <p className="mb-4 rounded-xl bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-800">
-          Registration fee: ৳{amount} BDT (pay via bKash)
+          Registration fee: ৳{effectiveAmount % 1 === 0 ? effectiveAmount : effectiveAmount.toFixed(2)} BDT (pay via bKash)
         </p>
-      )}
+      ) : hasCategories && !formData.category ? (
+        <p className="mb-4 rounded-xl bg-slate-50 px-4 py-2.5 text-sm text-slate-600">
+          Select a category to see the registration fee.
+        </p>
+      ) : effectiveAmount === 0 && isPaid && (hasCategories ? formData.category : true) ? (
+        <p className="mb-4 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-800">
+          This category is free to register.
+        </p>
+      ) : null)}
       <form onSubmit={handleSubmit} className="space-y-4">
         {hasCategories && (
           <div>
@@ -165,11 +199,23 @@ export default function RegistrationForm({ eventId, categories = [], isPaid, amo
               className={inputClass}
             >
               <option value="">Select a category</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
+              {categories.map((cat) => {
+                const catAmt =
+                  categoryAmounts[cat] !== undefined
+                    ? Number(categoryAmounts[cat])
+                    : amount
+                const label =
+                  typeof catAmt === 'number' && catAmt > 0
+                    ? `${cat} - ৳${catAmt} BDT`
+                    : typeof catAmt === 'number' && catAmt === 0
+                      ? `${cat} - Free`
+                      : cat
+                return (
+                  <option key={cat} value={cat}>
+                    {label}
+                  </option>
+                )
+              })}
             </select>
           </div>
         )}
@@ -258,12 +304,12 @@ export default function RegistrationForm({ eventId, categories = [], isPaid, amo
           disabled={status === 'loading' || status === 'redirecting'}
           className="w-full rounded-full bg-[hsl(var(--event-accent))] px-4 py-3 font-semibold text-white transition hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {status === 'redirecting'
+          {          status === 'redirecting'
             ? 'Redirecting to bKash…'
             : status === 'loading'
               ? 'Registering…'
-              : isPaid && amount != null && amount > 0
-                ? `Register - ৳${Number(amount) % 1 === 0 ? amount : Number(amount).toFixed(2)} BDT`
+              : requiresPayment
+                ? `Register - ৳${effectiveAmount % 1 === 0 ? effectiveAmount : effectiveAmount.toFixed(2)} BDT`
                 : 'Register'}
         </button>
       </form>

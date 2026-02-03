@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Calendar, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { format } from 'date-fns'
 
@@ -10,6 +11,8 @@ interface DatePickerProps {
   disabled?: boolean
   required?: boolean
   minDate?: Date
+  /** When true, show native date input for simpler editing */
+  simple?: boolean
 }
 
 export default function DatePicker({
@@ -18,12 +21,14 @@ export default function DatePicker({
   disabled,
   required,
   minDate,
+  simple = false,
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [position, setPosition] = useState({ top: 0, left: 0 })
   const [currentMonth, setCurrentMonth] = useState(
     value ? new Date(value + 'T12:00:00') : new Date()
   )
-  const inputRef = useRef<HTMLInputElement>(null)
+  const triggerRef = useRef<HTMLDivElement>(null)
   const calendarRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -33,12 +38,20 @@ export default function DatePicker({
   }, [value])
 
   useEffect(() => {
+    if (isOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      setPosition({ top: rect.bottom + 8, left: rect.left })
+    }
+  }, [isOpen])
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node
       if (
         calendarRef.current &&
-        !calendarRef.current.contains(event.target as Node) &&
-        inputRef.current &&
-        !inputRef.current.contains(event.target as Node)
+        !calendarRef.current.contains(target) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(target)
       ) {
         setIsOpen(false)
       }
@@ -124,142 +137,164 @@ export default function DatePicker({
     return dayDate < minDateStart
   }
 
+  if (simple) {
+    return (
+      <div className="relative">
+        <Calendar className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        <input
+          type="date"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          required={required}
+          min={minDate ? format(minDate, 'yyyy-MM-dd') : undefined}
+          className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-slate-900 transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60 [color-scheme:light]"
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="relative">
       <div
-        ref={inputRef}
+        ref={triggerRef}
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`w-full px-4 py-3 pl-11 border border-slate-200 rounded-xl bg-white transition-all cursor-pointer flex items-center ${
-          disabled ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300'
-        } ${isOpen ? 'ring-2 ring-indigo-500/20 border-indigo-500' : ''}`}
+        className={`flex w-full cursor-pointer items-center rounded-xl border bg-white px-4 py-3 pl-11 transition-all ${
+          disabled ? 'cursor-not-allowed opacity-60' : 'hover:border-slate-300'
+        } ${
+          isOpen
+            ? 'border-indigo-500 ring-2 ring-indigo-500/20'
+            : 'border-slate-200'
+        }`}
       >
-        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-        <span className={value ? 'text-slate-900' : 'text-slate-400'}>
+        <Calendar className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+        <span className={value ? 'font-medium text-slate-900' : 'text-slate-400'}>
           {displayDate}
         </span>
         {value && !disabled && (
           <button
             type="button"
             onClick={handleClear}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+            aria-label="Clear date"
           >
             <X className="h-4 w-4" />
           </button>
         )}
       </div>
 
-      {/* Hidden input for form validation */}
-      <input
-        type="hidden"
-        value={value}
-        required={required && !value}
-      />
+      <input type="hidden" value={value} required={required && !value} />
 
-      {isOpen && !disabled && (
-        <div
-          ref={calendarRef}
-          className="absolute top-full left-0 mt-2 z-50 bg-white border border-slate-200 rounded-xl shadow-lg p-4 min-w-[300px]"
-        >
-          {/* Calendar Header */}
-          <div className="flex items-center justify-between mb-4">
-            <button
-              type="button"
-              onClick={() => navigateMonth('prev')}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              <ChevronLeft className="h-5 w-5 text-slate-600" />
-            </button>
-            <span className="font-semibold text-slate-900">
-              {monthNames[month]} {year}
-            </span>
-            <button
-              type="button"
-              onClick={() => navigateMonth('next')}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              <ChevronRight className="h-5 w-5 text-slate-600" />
-            </button>
-          </div>
-
-          {/* Day Names */}
-          <div className="grid grid-cols-7 gap-1 mb-2">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-              <div
-                key={day}
-                className="text-center text-xs font-medium text-slate-500 py-2"
+      {isOpen &&
+        !disabled &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            ref={calendarRef}
+            className="fixed z-[9999] min-w-[320px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
+            style={{ top: position.top, left: position.left }}
+          >
+          <div className="bg-slate-50/80 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => navigateMonth('prev')}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 transition hover:bg-white hover:text-slate-900"
+                aria-label="Previous month"
               >
-                {day}
-              </div>
-            ))}
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <span className="text-sm font-semibold text-slate-800">
+                {monthNames[month]} {year}
+              </span>
+              <button
+                type="button"
+                onClick={() => navigateMonth('next')}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 transition hover:bg-white hover:text-slate-900"
+                aria-label="Next month"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
-          {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-1">
-            {days.map((day, index) => {
-              if (day === null) {
-                return <div key={`empty-${index}`} className="aspect-square" />
-              }
-
-              const dayDate = new Date(year, month, day)
-              const dateString = format(dayDate, 'yyyy-MM-dd')
-              const isToday = dateString === format(new Date(), 'yyyy-MM-dd')
-              const isSelected = value === dateString
-              const isDisabled = isDateDisabled(day)
-
-              return (
-                <button
+          <div className="p-4">
+            <div className="mb-2 grid grid-cols-7 gap-1">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                <div
                   key={day}
-                  type="button"
-                  onClick={() => !isDisabled && handleDateSelect(dayDate)}
-                  disabled={isDisabled}
-                  className={`
-                    aspect-square flex items-center justify-center rounded-lg text-sm font-medium transition-all
-                    ${
-                      isSelected
-                        ? 'bg-indigo-600 text-white shadow-md'
-                        : isToday
-                          ? 'bg-indigo-100 text-indigo-700 font-semibold'
-                          : isDisabled
-                            ? 'text-slate-300 cursor-not-allowed'
-                            : 'text-slate-700 hover:bg-slate-100'
-                    }
-                  `}
+                  className="py-1.5 text-center text-xs font-medium text-slate-500"
                 >
                   {day}
-                </button>
-              )
-            })}
-          </div>
+                </div>
+              ))}
+            </div>
 
-          {/* Quick Actions */}
-          <div className="flex gap-2 mt-4 pt-4 border-t border-slate-200">
-            <button
-              type="button"
-              onClick={() => {
-                const today = format(new Date(), 'yyyy-MM-dd')
-                onChange(today)
-                setIsOpen(false)
-              }}
-              className="flex-1 px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-            >
-              Today
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const tomorrow = new Date()
-                tomorrow.setDate(tomorrow.getDate() + 1)
-                const tomorrowString = format(tomorrow, 'yyyy-MM-dd')
-                onChange(tomorrowString)
-                setIsOpen(false)
-              }}
-              className="flex-1 px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-            >
-              Tomorrow
-            </button>
+            <div className="grid grid-cols-7 gap-1">
+              {days.map((day, index) => {
+                if (day === null) {
+                  return <div key={`empty-${index}`} className="aspect-square" />
+                }
+
+                const dayDate = new Date(year, month, day)
+                const dateString = format(dayDate, 'yyyy-MM-dd')
+                const isToday = dateString === format(new Date(), 'yyyy-MM-dd')
+                const isSelected = value === dateString
+                const isDisabled = isDateDisabled(day)
+
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => !isDisabled && handleDateSelect(dayDate)}
+                    disabled={isDisabled}
+                    className={`
+                      flex aspect-square items-center justify-center rounded-xl text-sm font-medium transition
+                      ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : isToday
+                            ? 'bg-indigo-50 font-semibold text-indigo-700 ring-1 ring-indigo-200'
+                            : isDisabled
+                              ? 'cursor-not-allowed text-slate-300'
+                              : 'text-slate-700 hover:bg-slate-100'
+                      }
+                    `}
+                  >
+                    {day}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="mt-4 flex gap-2 border-t border-slate-100 pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(format(new Date(), 'yyyy-MM-dd'))
+                  setIsOpen(false)
+                }}
+                className="flex-1 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-sm font-medium text-indigo-700 transition hover:bg-indigo-100"
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const tomorrow = new Date()
+                  tomorrow.setDate(tomorrow.getDate() + 1)
+                  onChange(format(tomorrow, 'yyyy-MM-dd'))
+                  setIsOpen(false)
+                }}
+                className="flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                Tomorrow
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body
+        )}
     </div>
   )
 }

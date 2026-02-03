@@ -279,6 +279,7 @@ export default async function EventDetailPage({
                 categories={event.categories}
                 isPaid={event.isPaid}
                 amount={event.amount}
+                categoryAmounts={event.categoryAmounts}
               />
             )}
           </div>

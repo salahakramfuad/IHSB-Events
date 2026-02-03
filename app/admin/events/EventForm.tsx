@@ -35,33 +35,46 @@ function Section({
   icon: Icon,
   children,
   defaultOpen = true,
+  collapsible = true,
 }: {
   title: string
   icon: React.ComponentType<{ className?: string }>
   children: React.ReactNode
   defaultOpen?: boolean
+  collapsible?: boolean
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
+  const showToggle = collapsible
+
   return (
-    <section className="rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-slate-50/50 transition-colors"
-      >
-        <span className="flex items-center gap-3 text-base font-semibold text-slate-900">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+    <section className="rounded-xl border border-slate-200/80 bg-white shadow-sm overflow-visible">
+      {showToggle ? (
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-slate-50/50 transition-colors"
+        >
+          <span className="flex items-center gap-2.5 text-sm font-semibold text-slate-800">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+              <Icon className="h-4 w-4" />
+            </span>
+            {title}
+          </span>
+          {isOpen ? (
+            <ChevronUp className="h-4 w-4 text-slate-400" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          )}
+        </button>
+      ) : (
+        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-slate-100">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
             <Icon className="h-4 w-4" />
           </span>
-          {title}
-        </span>
-        {isOpen ? (
-          <ChevronUp className="h-5 w-5 text-slate-400" />
-        ) : (
-          <ChevronDown className="h-5 w-5 text-slate-400" />
-        )}
-      </button>
-      {isOpen && <div className="border-t border-slate-100 px-5 py-5">{children}</div>}
+          <span className="text-sm font-semibold text-slate-800">{title}</span>
+        </div>
+      )}
+      {isOpen && <div className="px-4 py-4">{children}</div>}
     </section>
   )
 }
@@ -71,16 +84,18 @@ function FormField({
   htmlFor,
   required,
   hint,
+  compact,
   children,
 }: {
   label: string
   htmlFor?: string
   required?: boolean
   hint?: string
+  compact?: boolean
   children: React.ReactNode
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className={compact ? 'space-y-1' : 'space-y-1.5'}>
       <label
         htmlFor={htmlFor}
         className="block text-sm font-medium text-slate-700"
@@ -118,6 +133,19 @@ export default function EventForm({ event }: EventFormProps) {
   })
   const [categories, setCategories] = useState<string[]>(
     Array.isArray(event?.categories) ? [...event.categories] : []
+  )
+  const [categoryAmounts, setCategoryAmounts] = useState<Record<string, number>>(
+    () => {
+      const cats = Array.isArray(event?.categories) ? event.categories : []
+      const existing = event?.categoryAmounts
+      const fallback = typeof event?.amount === 'number' ? event.amount : 0
+      const out: Record<string, number> = {}
+      for (const c of cats) {
+        out[c] =
+          existing && typeof existing[c] === 'number' ? existing[c] : fallback
+      }
+      return out
+    }
   )
   const [categoryInput, setCategoryInput] = useState('')
   const [colorTheme, setColorTheme] = useState(
@@ -197,19 +225,39 @@ export default function EventForm({ event }: EventFormProps) {
     const name = categoryInput.trim()
     if (!name || categories.includes(name)) return
     setCategories((prev) => [...prev, name].sort())
+    setCategoryAmounts((prev) => ({ ...prev, [name]: formData.amount || 0 }))
     setCategoryInput('')
   }
 
   const removeCategory = (name: string) => {
     setCategories((prev) => prev.filter((c) => c !== name))
+    setCategoryAmounts((prev) => {
+      const next = { ...prev }
+      delete next[name]
+      return next
+    })
+  }
+
+  const setCategoryAmount = (name: string, value: number) => {
+    setCategoryAmounts((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    if (formData.isPaid && (!formData.amount || formData.amount <= 0)) {
-      setError('For paid events, amount must be greater than 0.')
-      return
+    if (formData.isPaid) {
+      if (categories.length > 0) {
+        const missing = categories.filter(
+          (c) => typeof categoryAmounts[c] !== 'number' || categoryAmounts[c] < 0
+        )
+        if (missing.length > 0) {
+          setError('For paid events with categories, set an amount (0 or more) for each category.')
+          return
+        }
+      } else if (!formData.amount || formData.amount <= 0) {
+        setError('For paid events, amount must be greater than 0.')
+        return
+      }
     }
     setLoading(true)
     try {
@@ -228,6 +276,12 @@ export default function EventForm({ event }: EventFormProps) {
           colorTheme: colorTheme || undefined,
           isPaid: formData.isPaid || undefined,
           amount: formData.isPaid ? formData.amount : undefined,
+          categoryAmounts:
+            formData.isPaid && categories.length > 0
+              ? Object.fromEntries(
+                  categories.map((c) => [c, categoryAmounts[c] ?? 0])
+                )
+              : undefined,
         })
         if (result.success) {
           router.push('/admin/events')
@@ -250,6 +304,12 @@ export default function EventForm({ event }: EventFormProps) {
           colorTheme: colorTheme || undefined,
           isPaid: formData.isPaid || undefined,
           amount: formData.isPaid ? formData.amount : undefined,
+          categoryAmounts:
+            formData.isPaid && categories.length > 0
+              ? Object.fromEntries(
+                  categories.map((c) => [c, categoryAmounts[c] ?? 0])
+                )
+              : undefined,
         })
         if (result.success && result.id) {
           router.push('/admin/events')
@@ -263,12 +323,15 @@ export default function EventForm({ event }: EventFormProps) {
     }
   }
 
+  const sectionGap = isEdit ? 'space-y-4' : 'space-y-6'
+  const collapsible = !isEdit
+
   return (
-    <form onSubmit={handleSubmit} className="pb-32">
-      <div className="max-w-2xl space-y-6">
+    <form onSubmit={handleSubmit} className="pb-28">
+      <div className={`${sectionGap}`}>
         {/* Basic Info */}
-        <Section title="Basic Information" icon={FileText}>
-          <div className="space-y-5">
+        <Section title="Basic Information" icon={FileText} collapsible={collapsible} defaultOpen={true}>
+          <div className={isEdit ? 'space-y-4' : 'space-y-5'}>
             <FormField label="Event title" htmlFor="title" required>
               <input
                 id="title"
@@ -317,8 +380,8 @@ export default function EventForm({ event }: EventFormProps) {
         </Section>
 
         {/* Date & Time */}
-        <Section title="Date & Time" icon={CalendarDays}>
-          <div className="grid gap-5 sm:grid-cols-2">
+        <Section title="Date & Time" icon={CalendarDays} collapsible={collapsible} defaultOpen={true}>
+          <div className={`grid gap-4 sm:grid-cols-2 ${isEdit ? '' : 'gap-5'}`}>
             <FormField label="Date" required>
               <DatePicker
                 value={formData.date}
@@ -344,8 +407,8 @@ export default function EventForm({ event }: EventFormProps) {
         </Section>
 
         {/* Location */}
-        <Section title="Location" icon={MapPin}>
-          <div className="space-y-5">
+        <Section title="Location" icon={MapPin} collapsible={collapsible} defaultOpen={true}>
+          <div className={isEdit ? 'space-y-4' : 'space-y-5'}>
             <FormField label="Location" htmlFor="location" required>
               <input
                 id="location"
@@ -377,8 +440,8 @@ export default function EventForm({ event }: EventFormProps) {
         </Section>
 
         {/* Media */}
-        <Section title="Media" icon={ImageIcon} defaultOpen={!!(formData.image || formData.logo)}>
-          <div className="space-y-6">
+        <Section title="Media" icon={ImageIcon} collapsible={collapsible} defaultOpen={!!(formData.image || formData.logo) || isEdit}>
+          <div className={isEdit ? 'space-y-5' : 'space-y-6'}>
             <div>
               <FormField
                 label="Cover image"
@@ -508,62 +571,8 @@ export default function EventForm({ event }: EventFormProps) {
           </div>
         </Section>
 
-        {/* Registration & Payment */}
-        <Section title="Registration & Payment" icon={CreditCard}>
-          <div className="space-y-5">
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-              <label className="flex cursor-pointer items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={formData.isPaid}
-                  onChange={(e) => {
-                    setFormData((prev) => ({ ...prev, isPaid: e.target.checked }))
-                    setError('')
-                  }}
-                  className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span>
-                  <span className="text-sm font-medium text-slate-900">
-                    Paid event
-                  </span>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    Registrants will pay via bKash to confirm their registration.
-                  </p>
-                </span>
-              </label>
-            </div>
-            {formData.isPaid && (
-              <FormField
-                label="Amount (BDT)"
-                htmlFor="amount"
-                required
-                hint="Registration fee in Bangladeshi Taka"
-              >
-                <input
-                  id="amount"
-                  name="amount"
-                  type="number"
-                  min={1}
-                  required={formData.isPaid}
-                  value={formData.amount || ''}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value, 10)
-                    setFormData((prev) => ({
-                      ...prev,
-                      amount: isNaN(val) ? 0 : val,
-                    }))
-                    setError('')
-                  }}
-                  className={inputClass}
-                  placeholder="e.g. 500"
-                />
-              </FormField>
-            )}
-          </div>
-        </Section>
-
         {/* Categories */}
-        <Section title="Categories" icon={Tag} defaultOpen={categories.length > 0}>
+        <Section title="Categories" icon={Tag} collapsible={collapsible} defaultOpen={categories.length > 0 || isEdit}>
           <div className="space-y-4">
             <FormField
               label="Registration categories"
@@ -614,8 +623,102 @@ export default function EventForm({ event }: EventFormProps) {
           </div>
         </Section>
 
+        {/* Registration & Payment */}
+        <Section title="Registration & Payment" icon={CreditCard} collapsible={collapsible} defaultOpen={formData.isPaid || isEdit}>
+          <div className={isEdit ? 'space-y-4' : 'space-y-5'}>
+            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={formData.isPaid}
+                  onChange={(e) => {
+                    setFormData((prev) => ({ ...prev, isPaid: e.target.checked }))
+                    setError('')
+                  }}
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span>
+                  <span className="text-sm font-medium text-slate-900">
+                    Paid event
+                  </span>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Registrants will pay via bKash to confirm their registration.
+                  </p>
+                </span>
+              </label>
+            </div>
+            {formData.isPaid && categories.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-slate-700">
+                  Amount per category (BDT)
+                </p>
+                <p className="text-xs text-slate-500">
+                  Set 0 for free categories. Each category can have a different fee.
+                </p>
+                <div className="space-y-3">
+                  {categories.map((cat) => (
+                    <div key={cat} className="flex items-center gap-3">
+                      <label
+                        htmlFor={`amount-${cat}`}
+                        className="w-40 shrink-0 text-sm text-slate-600"
+                      >
+                        {cat}
+                      </label>
+                      <input
+                        id={`amount-${cat}`}
+                        type="number"
+                        min={0}
+                        value={
+                          typeof categoryAmounts[cat] === 'number'
+                            ? categoryAmounts[cat]
+                            : ''
+                        }
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10)
+                          setCategoryAmount(cat, isNaN(val) ? 0 : val)
+                          setError('')
+                        }}
+                        className={inputClass}
+                        placeholder="0"
+                      />
+                      <span className="text-sm text-slate-500">BDT</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {formData.isPaid && categories.length === 0 && (
+              <FormField
+                label="Amount (BDT)"
+                htmlFor="amount"
+                required
+                hint="Registration fee in Bangladeshi Taka"
+              >
+                <input
+                  id="amount"
+                  name="amount"
+                  type="number"
+                  min={1}
+                  required={formData.isPaid}
+                  value={formData.amount || ''}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10)
+                    setFormData((prev) => ({
+                      ...prev,
+                      amount: isNaN(val) ? 0 : val,
+                    }))
+                    setError('')
+                  }}
+                  className={inputClass}
+                  placeholder="e.g. 500"
+                />
+              </FormField>
+            )}
+          </div>
+        </Section>
+
         {/* Appearance */}
-        <Section title="Appearance" icon={Palette} defaultOpen={false}>
+        <Section title="Appearance" icon={Palette} collapsible={true} defaultOpen={false}>
           <FormField
             label="PDF color theme"
             hint="Color for registration PDFs (bars, badges)"
@@ -675,24 +778,24 @@ export default function EventForm({ event }: EventFormProps) {
       </div>
 
       {/* Sticky save bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 py-4 pl-24 backdrop-blur supports-backdrop-filter:bg-white/80 lg:pl-72">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 pr-8">
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 py-3 pl-20 backdrop-blur supports-backdrop-filter:bg-white/80 lg:pl-64">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 pr-6">
           <p className="text-sm text-slate-500">
-            {isEdit ? 'Update your changes' : 'Review and create your event'}
+            {isEdit ? 'Save your changes' : 'Review and create your event'}
           </p>
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <Link
-              href="/admin/events"
-              className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              href={isEdit ? `/admin/events/${event?.id}` : '/admin/events'}
+              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
             >
-              Cancel
+              {isEdit ? 'Back' : 'Cancel'}
             </Link>
             <button
               type="submit"
               disabled={loading}
-              className="rounded-xl bg-indigo-600 px-6 py-2.5 font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-50"
+              className="rounded-lg bg-indigo-600 px-5 py-2 font-semibold text-white text-sm shadow-sm transition hover:bg-indigo-500 disabled:opacity-50"
             >
-              {loading ? 'Saving…' : isEdit ? 'Update event' : 'Create event'}
+              {loading ? 'Saving…' : isEdit ? 'Save changes' : 'Create event'}
             </button>
           </div>
         </div>

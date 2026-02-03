@@ -120,6 +120,7 @@ export async function createEvent(
     colorTheme?: string
     isPaid?: boolean
     amount?: number
+    categoryAmounts?: Record<string, number>
     createdBy?: string
   }
 ): Promise<{ success: boolean; id?: string; error?: string }> {
@@ -145,7 +146,14 @@ export async function createEvent(
       categories: categories.length > 0 ? categories : null,
       colorTheme: data.colorTheme?.trim() || null,
       isPaid: data.isPaid ?? false,
-      amount: data.isPaid && typeof data.amount === 'number' && data.amount > 0 ? data.amount : null,
+      amount:
+        data.isPaid && typeof data.amount === 'number' && data.amount >= 0
+          ? data.amount
+          : null,
+      categoryAmounts:
+        data.categoryAmounts && Object.keys(data.categoryAmounts).length > 0
+          ? data.categoryAmounts
+          : null,
       createdBy,
       createdByName,
       createdAt: now,
@@ -177,6 +185,7 @@ export async function updateEvent(
     colorTheme: string
     isPaid: boolean
     amount: number
+    categoryAmounts: Record<string, number>
   }>
 ): Promise<{ success: boolean; error?: string }> {
   if (!adminDb) return { success: false, error: 'Database not available' }
@@ -193,9 +202,15 @@ export async function updateEvent(
         update[k] = arr.length > 0 ? arr : null
       } else if (k === 'isPaid') {
         update[k] = v
-        if (!v) update.amount = null
+        if (!v) {
+          update.amount = null
+          update.categoryAmounts = null
+        }
       } else if (k === 'amount') {
-        update[k] = data.isPaid && typeof v === 'number' && v > 0 ? v : null
+        update[k] = data.isPaid && typeof v === 'number' && v >= 0 ? v : null
+      } else if (k === 'categoryAmounts') {
+        update[k] =
+          v && typeof v === 'object' && Object.keys(v).length > 0 ? v : null
       } else {
         update[k] = v
       }
