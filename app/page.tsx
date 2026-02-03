@@ -75,6 +75,14 @@ export default async function HomePage({
             </a>
           </div>
         </div>
+        <a
+          href="https://github.com/salahakramfuad"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-500 transition hover:text-amber-600 sm:right-6"
+        >
+          Built by Mohammad Salah
+        </a>
       </section>
     </div>
   )
