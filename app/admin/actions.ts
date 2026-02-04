@@ -8,7 +8,7 @@ import { getCurrentAdminProfile } from '@/lib/get-admin'
 import type { Event } from '@/types/event'
 import type { Registration } from '@/types/registration'
 import { revalidatePath, revalidateTag } from 'next/cache'
-import { sendAwardeeResultEmail } from '@/lib/brevo'
+import { sendAwardeeResultEmail, sendRegistrationDeletedEmail } from '@/lib/brevo'
 import { ensureSchoolExists } from '@/lib/schools'
 
 async function getCurrentUserId(): Promise<string> {
@@ -479,7 +479,7 @@ export async function updateRegistrationPosition(
   }
 }
 
-/** Delete a registration. Super admins only. */
+/** Delete a registration. Super admins only. Sends notification email to the registree. */
 export async function deleteRegistration(
   eventId: string,
   registrationDocId: string
@@ -500,11 +500,31 @@ export async function deleteRegistration(
     const regDoc = await regRef.get()
     if (!regDoc.exists) return { success: false, error: 'Registration not found' }
 
+    const regData = regDoc.data()!
+    const event = await getAdminEvent(eventId)
+    if (!event) return { success: false, error: 'Event not found' }
+
     await regRef.delete()
     revalidatePath(`/admin/events/${eventId}`)
     revalidatePath(`/admin/events/${eventId}/registrations`)
     revalidatePath(`/${eventId}`)
     revalidateTag('schools', 'max')
+
+    const email = (regData.email ?? '').trim().toLowerCase()
+    const name = (regData.name ?? '').trim() || 'Registrant'
+    const registrationId = regData.registrationId ?? registrationDocId
+    if (email) {
+      const emailResult = await sendRegistrationDeletedEmail({
+        to: email,
+        name,
+        event,
+        registrationId,
+      })
+      if (!emailResult.success) {
+        console.error('Failed to send registration-deleted notification:', emailResult.error)
+      }
+    }
+
     return { success: true }
   } catch (error) {
     console.error('Error deleting registration:', error)

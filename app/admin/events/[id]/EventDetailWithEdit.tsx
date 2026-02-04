@@ -70,6 +70,19 @@ export default function EventDetailWithEdit({
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
 
   const hasCategories = Array.isArray(event.categories) && event.categories.length > 0
+  const getAmountForReg = (reg: Registration): number => {
+    if (!event.isPaid || reg.paymentStatus !== 'completed') return 0
+    const cats = event.categories
+    const catAmounts = event.categoryAmounts
+    if (Array.isArray(cats) && cats.length > 0 && catAmounts && reg.category) {
+      return typeof catAmounts[reg.category] === 'number' ? catAmounts[reg.category]! : (event.amount ?? 0)
+    }
+    return typeof event.amount === 'number' ? event.amount : 0
+  }
+  const totalAmountCollected = event.isPaid
+    ? registrations.reduce((sum, r) => sum + getAmountForReg(r), 0)
+    : 0
+  const paidCount = registrations.filter((r) => r.paymentStatus === 'completed').length
   const winnersByCategory = hasCategories
     ? winners.reduce<Record<string, typeof winners>>((acc, w) => {
         const cat = w.category?.trim() || 'Uncategorized'
@@ -549,25 +562,23 @@ export default function EventDetailWithEdit({
               <p className="text-sm text-slate-500">Total registrations</p>
             </div>
           </div>
-          {event.isPaid && typeof event.amount === 'number' && event.amount > 0 && (
+          {event.isPaid && (
             <div className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white px-6 py-4 shadow-sm">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
                 <Banknote className="h-6 w-6" aria-hidden />
               </div>
               <div>
                 <p className="text-2xl font-bold text-slate-900">
-                  ৳{(
-                    event.amount *
-                    registrations.filter((r) => r.paymentStatus === 'completed').length
-                  ).toLocaleString()}
+                  ৳{totalAmountCollected.toLocaleString()}
                 </p>
                 <p className="text-sm text-slate-500">
-                  Total collected ({registrations.filter((r) => r.paymentStatus === 'completed').length} paid)
+                  Total collected ({paidCount} paid)
                 </p>
               </div>
             </div>
           )}
           <ExportRegistrationsButton
+            event={event}
             eventId={event.id}
             eventTitle={event.title}
             registrations={registrations}

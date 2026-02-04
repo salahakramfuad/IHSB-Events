@@ -1,10 +1,12 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Users, Award, Building2 } from 'lucide-react'
+import { Users, Award, Building2, Banknote } from 'lucide-react'
 import type { Registration } from '@/types/registration'
+import type { Event } from '@/types/event'
 
 interface EventStatsSectionProps {
+  event: Event
   registrations: Registration[]
 }
 
@@ -27,7 +29,18 @@ function computeSchoolStats(registrations: Registration[]) {
 
 const PIE_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6']
 
-export default function EventStatsSection({ registrations }: EventStatsSectionProps) {
+function getAmountForReg(event: Event, reg: Registration): number {
+  const isPaid = !!event.isPaid
+  if (!isPaid || reg.paymentStatus !== 'completed') return 0
+  const cats = event.categories
+  const catAmounts = event.categoryAmounts
+  if (Array.isArray(cats) && cats.length > 0 && catAmounts && reg.category) {
+    return typeof catAmounts[reg.category] === 'number' ? catAmounts[reg.category]! : (event.amount ?? 0)
+  }
+  return typeof event.amount === 'number' ? event.amount : 0
+}
+
+export default function EventStatsSection({ event, registrations }: EventStatsSectionProps) {
   const totalParticipants = registrations.length
   const totalWinners = registrations.filter(
     (r) => r.position != null && r.position >= 1 && r.position <= 20
@@ -43,9 +56,13 @@ export default function EventStatsSection({ registrations }: EventStatsSectionPr
   const totalForPie = pieData.reduce((s, d) => s + d.value, 0)
   const circumference = 2 * Math.PI * 40
 
+  const totalAmountCollected = event.isPaid
+    ? registrations.reduce((sum, r) => sum + getAmountForReg(event, r), 0)
+    : 0
+
   return (
     <div className="mb-10 space-y-8">
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className={`grid gap-5 sm:grid-cols-2 ${event.isPaid ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
         <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
           <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
             <Users className="h-5 w-5" aria-hidden />
@@ -60,6 +77,15 @@ export default function EventStatsSection({ registrations }: EventStatsSectionPr
           <p className="text-sm font-medium text-slate-500">Winners (1st–20th)</p>
           <p className="mt-1 text-3xl font-bold text-slate-900">{totalWinners}</p>
         </div>
+        {event.isPaid && (
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
+            <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+              <Banknote className="h-5 w-5" aria-hidden />
+            </div>
+            <p className="text-sm font-medium text-slate-500">Amount collected</p>
+            <p className="mt-1 text-3xl font-bold text-slate-900">৳{totalAmountCollected.toLocaleString()}</p>
+          </div>
+        )}
       </div>
 
       {pieData.length > 0 && totalForPie > 0 && (

@@ -42,9 +42,9 @@ export default async function EventRegistrationsPage({
             Registrations: {event.title}
           </h1>
         </div>
-        <ExportRegistrationsButton eventId={id} eventTitle={event.title} registrations={registrations} />
+        <ExportRegistrationsButton event={event} eventId={id} eventTitle={event.title} registrations={registrations} />
       </div>
-      <EventStatsSection registrations={registrations} />
+      <EventStatsSection event={event} registrations={registrations} />
       <RegistrationsTableWithSearch
         eventId={id}
         event={event}

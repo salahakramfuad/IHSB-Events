@@ -204,6 +204,205 @@ export async function sendIHSBConfirmationEmail({
   }
 }
 
+export interface RegistrationDeletedEmailProps {
+  to: string
+  name: string
+  event: Event
+  registrationId: string
+}
+
+/**
+ * Send notification when a registration is deleted by admin.
+ * Informs the registree and provides contact persons for any convenience.
+ */
+export async function sendRegistrationDeletedEmail({
+  to,
+  name,
+  event,
+  registrationId,
+}: RegistrationDeletedEmailProps): Promise<IHSBEmailResult> {
+  try {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!to?.trim() || !emailRegex.test(to.trim())) {
+      return { success: false, error: 'Invalid email address.' }
+    }
+
+    const normalizedEmail = to.trim().toLowerCase()
+
+    if (!process.env.BREVO_API_KEY?.trim()) {
+      return { success: false, error: 'Email service is not configured (BREVO_API_KEY).' }
+    }
+
+    const firstDate = getFirstEventDate(event.date)
+    const formattedDate = firstDate ? formatEventDates(parseEventDates(event.date), 'long') : 'TBA'
+    const venue = event.venue || event.location || 'TBA'
+    const firstName = name.split(' ')[0] || name
+
+    const contactPersons = Array.isArray(event.contactPersons)
+      ? event.contactPersons.filter((p) => p && (p.name?.trim() || p.phone?.trim()))
+      : []
+    const contactPersonsHtml =
+      contactPersons.length > 0
+        ? `
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fffbeb;border:1px solid #fcd34d;border-radius:12px;margin:25px 0;">
+          <tr>
+            <td style="padding:25px;">
+              <h3 style="color:#92400e;font-size:14px;text-transform:uppercase;letter-spacing:1px;margin:0 0 16px;border-bottom:2px solid #fde68a;padding-bottom:10px;">Contact for any convenience</h3>
+              <p style="color:#78350f;font-size:14px;line-height:1.6;margin:0 0 12px;">
+                If you have any questions or need assistance, please reach out to the event contact person(s):
+              </p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                ${contactPersons
+                  .map(
+                    (p) => `
+                <tr>
+                  <td style="padding:12px 0;border-bottom:1px solid #fde68a;">
+                    <strong style="color:#78350f;">${(p.name ?? '').trim() || '—'}</strong>
+                    ${p.position ? `<span style="color:#a16207;font-size:13px;"> (${p.position})</span>` : ''}
+                    <br/>
+                    <a href="tel:${(p.phone ?? '').replace(/[^0-9+]/g, '')}" style="color:#b45309;font-size:14px;text-decoration:none;">${(p.phone ?? '').trim() || '—'}</a>
+                  </td>
+                </tr>
+                `
+                  )
+                  .join('')}
+              </table>
+            </td>
+          </tr>
+        </table>
+        `
+        : `
+        <p style="color:#64748b;font-size:14px;line-height:1.6;margin:25px 0;">
+          If you have any questions, please contact the event organizers directly.
+        </p>
+        `
+
+    const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registration Cancelled - ${event.title}</title>
+</head>
+<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f8fafc;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;margin:0 auto;background-color:#ffffff;">
+    <!-- Header -->
+    <tr>
+      <td style="background:linear-gradient(135deg,#d97706 0%,#f59e0b 100%);padding:40px 30px;text-align:center;">
+        <div style="font-size:48px;margin-bottom:10px;">📋</div>
+        <h1 style="color:#ffffff;margin:0;font-size:28px;font-weight:700;">Registration Update</h1>
+        <p style="color:#fef3c7;margin:10px 0 0;font-size:16px;">Your registration for ${event.title} has been removed</p>
+      </td>
+    </tr>
+    
+    <!-- Main content -->
+    <tr>
+      <td style="padding:40px 30px;">
+        <p style="color:#334155;font-size:18px;margin:0 0 20px;">Dear <strong>${firstName}</strong>,</p>
+        
+        <p style="color:#475569;font-size:16px;line-height:1.7;margin:0 0 25px;">
+          This is to inform you that your registration for <strong>${event.title}</strong> has been removed by our admin team.
+        </p>
+        
+        <p style="color:#475569;font-size:16px;line-height:1.7;margin:0 0 25px;">
+          <strong>Registration ID:</strong> <span style="font-family:monospace;font-weight:600;">${registrationId}</span>
+        </p>
+        
+        <!-- Event details card -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border-radius:12px;margin:25px 0;">
+          <tr>
+            <td style="padding:25px;">
+              <h3 style="color:#1e293b;font-size:14px;text-transform:uppercase;letter-spacing:1px;margin:0 0 20px;border-bottom:2px solid #e2e8f0;padding-bottom:10px;">Event Details</h3>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="padding:12px 0;border-bottom:1px solid #e2e8f0;">
+                    <span style="color:#64748b;font-size:13px;text-transform:uppercase;">Event</span><br/>
+                    <span style="color:#1e293b;font-size:16px;font-weight:600;">${event.title}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:12px 0;border-bottom:1px solid #e2e8f0;">
+                    <span style="color:#64748b;font-size:13px;text-transform:uppercase;">Date</span><br/>
+                    <span style="color:#1e293b;font-size:16px;font-weight:600;">${formattedDate}</span>
+                  </td>
+                </tr>
+                ${event.time?.trim() ? `
+                <tr>
+                  <td style="padding:12px 0;border-bottom:1px solid #e2e8f0;">
+                    <span style="color:#64748b;font-size:13px;text-transform:uppercase;">Time</span><br/>
+                    <span style="color:#1e293b;font-size:16px;font-weight:600;">${event.time.trim()}</span>
+                  </td>
+                </tr>
+                ` : ''}
+                <tr>
+                  <td style="padding:12px 0;">
+                    <span style="color:#64748b;font-size:13px;text-transform:uppercase;">Venue</span><br/>
+                    <span style="color:#1e293b;font-size:16px;font-weight:600;">${venue}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+        
+        ${contactPersonsHtml}
+        
+        <p style="color:#475569;font-size:16px;line-height:1.7;margin:25px 0 0;">
+          If you believe this was done in error or have any concerns, please contact us using the details above.
+        </p>
+      </td>
+    </tr>
+    
+    <!-- Footer -->
+    <tr>
+      <td style="background:#f1f5f9;padding:30px;text-align:center;border-top:1px solid #e2e8f0;">
+        <p style="color:#64748b;font-size:14px;margin:0 0 5px;">Best regards,</p>
+        <p style="color:#1e293b;font-size:16px;font-weight:700;margin:0;">IHSB Events Team</p>
+        <p style="color:#94a3b8;font-size:12px;margin:15px 0 0;">© ${new Date().getFullYear()} IHSB Events. All rights reserved.</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
+    const fromEmail = process.env.BREVO_FROM_EMAIL || process.env.BREVO_SENDER_EMAIL || 'IHSB Events <noreply@example.com>'
+    let senderEmail = fromEmail
+    let senderName = 'IHSB Events'
+    const nameMatch = fromEmail.match(/^(.+?)\s*<(.+?)>$/)
+    if (nameMatch) {
+      senderName = nameMatch[1].trim()
+      senderEmail = nameMatch[2].trim()
+    }
+
+    const apiInstance = new brevo.TransactionalEmailsApi()
+    apiInstance.setApiKey(brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY)
+
+    const sendSmtpEmail = new brevo.SendSmtpEmail()
+    sendSmtpEmail.sender = { email: senderEmail, name: senderName }
+    sendSmtpEmail.to = [{ email: normalizedEmail, name }]
+    sendSmtpEmail.subject = `Registration Removed: ${event.title} - ${registrationId}`
+    sendSmtpEmail.htmlContent = emailHtml
+
+    const data = await apiInstance.sendTransacEmail(sendSmtpEmail)
+
+    if (data === null || data === undefined) {
+      return { success: false, error: 'Email service returned no response.' }
+    }
+    if (typeof data === 'object' && 'messageId' in data) {
+      return { success: true }
+    }
+    if (typeof data === 'string') {
+      return { success: true }
+    }
+    return { success: true }
+  } catch (error: unknown) {
+    const err = error as { response?: { body?: { message?: string } }; message?: string }
+    const msg = err.response?.body?.message ?? err.message ?? 'Failed to send email'
+    return { success: false, error: String(msg) }
+  }
+}
+
 export interface AwardeeResultEmailProps {
   to: string
   name: string

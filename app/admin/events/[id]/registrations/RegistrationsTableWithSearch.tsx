@@ -124,6 +124,17 @@ export default function RegistrationsTableWithSearch({
   const positionLabel = (n: number) =>
     n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`
 
+  const getAmountForReg = (reg: Registration): number => {
+    if (!isPaidEvent) return 0
+    if (reg.paymentStatus !== 'completed') return 0
+    const cats = event.categories
+    const catAmounts = event.categoryAmounts
+    if (Array.isArray(cats) && cats.length > 0 && catAmounts && reg.category) {
+      return typeof catAmounts[reg.category] === 'number' ? catAmounts[reg.category]! : (event.amount ?? 0)
+    }
+    return typeof event.amount === 'number' ? event.amount : 0
+  }
+
   const handleExportExcel = () => {
     const rows = filtered.map((reg) => {
       const base = {
@@ -143,6 +154,7 @@ export default function RegistrationsTableWithSearch({
       if (isPaidEvent) {
         return {
           ...base,
+          'Amount (BDT)': getAmountForReg(reg),
           'Payment Status': reg.paymentStatus === 'pending' ? 'Pending' : 'Completed',
           'bKash Trx ID': reg.bkashTrxId ?? '',
         }
@@ -393,9 +405,14 @@ export default function RegistrationsTableWithSearch({
                 Registered
               </th>
               {isPaidEvent && (
-                <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Payment
-                </th>
+                <>
+                  <th className="px-5 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Amount
+                  </th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Payment
+                  </th>
+                </>
               )}
               {canEdit && (
                 <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -464,8 +481,12 @@ export default function RegistrationsTableWithSearch({
                     : '—'}
                 </td>
                 {isPaidEvent && (
-                  <td className="px-5 py-4">
-                    <span
+                  <>
+                    <td className="px-5 py-4 text-right text-sm font-medium text-slate-900">
+                      ৳{getAmountForReg(reg).toLocaleString()}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span
                       className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
                         reg.paymentStatus === 'pending'
                           ? 'bg-amber-100 text-amber-800'
@@ -480,6 +501,7 @@ export default function RegistrationsTableWithSearch({
                       </span>
                     )}
                   </td>
+                  </>
                 )}
                 {canEdit && (
                   <td className="px-5 py-4">
@@ -703,6 +725,9 @@ export default function RegistrationsTableWithSearch({
               <p className="mt-1 text-sm text-amber-800">
                 This will permanently delete the registration for <strong>{deleteModal.name}</strong> ({deleteModal.email}).
                 This action cannot be undone.
+              </p>
+              <p className="mt-2 text-sm text-amber-700">
+                The registree will be notified by email and provided with event contact details for any convenience.
               </p>
             </div>
             <p className="mb-4 text-sm text-slate-600">

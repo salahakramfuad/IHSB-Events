@@ -61,35 +61,58 @@ async function fetchDashboardStats() {
   })
   const upcoming = eventsWithDate.filter((e) => isEventUpcoming(e.date))
 
-  // Use count() aggregation instead of fetching all docs - O(1) reads per event
+  function getAmountForReg(
+    eventData: { amount?: number; categoryAmounts?: Record<string, number>; categories?: string[] },
+    reg: { paymentStatus?: string; category?: string }
+  ): number {
+    if (reg.paymentStatus !== 'completed') return 0
+    const cats = eventData.categories
+    const catAmounts = eventData.categoryAmounts
+    if (Array.isArray(cats) && cats.length > 0 && catAmounts && reg.category) {
+      return typeof catAmounts[reg.category] === 'number' ? catAmounts[reg.category]! : (eventData.amount ?? 0)
+    }
+    return typeof eventData.amount === 'number' ? eventData.amount : 0
+  }
+
   const regCounts = await Promise.all(
     eventsSnap.docs.map(async (doc) => {
       const data = doc.data()
-      const isPaid = !!data.isPaid && typeof data.amount === 'number' && data.amount > 0
-      const amount = (data.amount as number) ?? 0
+      const isPaid = !!data.isPaid && (
+        (typeof data.amount === 'number' && data.amount > 0) ||
+        (data.categoryAmounts && typeof data.categoryAmounts === 'object' && Object.keys(data.categoryAmounts).length > 0)
+      )
 
-      const [totalSnap, paidSnap] = await Promise.all([
-        doc.ref.collection('registrations').count().get(),
-        isPaid
-          ? doc.ref
-              .collection('registrations')
-              .where('paymentStatus', '==', 'completed')
-              .count()
-              .get()
-          : null,
-      ])
-
+      const totalSnap = await doc.ref.collection('registrations').count().get()
       const count = (totalSnap.data() as { count?: number })?.count ?? 0
-      const paidCount = isPaid && paidSnap ? ((paidSnap.data() as { count?: number })?.count ?? 0) : 0
 
-      return { id: doc.id, count, paidCount, amount, isPaid }
+      let amountCollected = 0
+      if (isPaid) {
+        const paidRegsSnap = await doc.ref
+          .collection('registrations')
+          .where('paymentStatus', '==', 'completed')
+          .get()
+        const eventData = {
+          amount: data.amount as number | undefined,
+          categoryAmounts: data.categoryAmounts as Record<string, number> | undefined,
+          categories: data.categories as string[] | undefined,
+        }
+        paidRegsSnap.docs.forEach((regDoc) => {
+          const regData = regDoc.data()
+          amountCollected += getAmountForReg(eventData, {
+            paymentStatus: regData.paymentStatus,
+            category: regData.category,
+          })
+        })
+      }
+
+      return { id: doc.id, count, amountCollected, isPaid }
     })
   )
 
   const regCountMap = Object.fromEntries(regCounts.map((r) => [r.id, r.count]))
   const totalRegistrations = regCounts.reduce((sum, r) => sum + r.count, 0)
   const totalPaymentsCollected = regCounts.reduce(
-    (sum, r) => sum + (r.isPaid ? r.amount * r.paidCount : 0),
+    (sum, r) => sum + r.amountCollected,
     0
   )
 
