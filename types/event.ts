@@ -34,4 +34,8 @@ export type Event = {
   createdBy: string
   createdByName?: string
   createdByEmail?: string
+  /** ISO date when soft-deleted; null = active */
+  deletedAt?: string | null
+  /** UID of admin who deleted */
+  deletedBy?: string
 }

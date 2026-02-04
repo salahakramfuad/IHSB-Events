@@ -90,12 +90,15 @@ export async function POST(request: NextRequest) {
 
     const existingSnap = await regsRef.where('email', '==', normalizedEmail).limit(1).get()
     if (!existingSnap.empty) {
-      return NextResponse.json({
-        success: true,
-        registrationId: existingSnap.docs[0].data().registrationId,
-        eventId,
-        trxID: result.trxID,
-      })
+      const existingData = existingSnap.docs[0].data()
+      if (!existingData.deletedAt) {
+        return NextResponse.json({
+          success: true,
+          registrationId: existingData.registrationId,
+          eventId,
+          trxID: result.trxID,
+        })
+      }
     }
 
     await ensureSchoolExists(school.trim())

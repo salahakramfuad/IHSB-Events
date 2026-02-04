@@ -67,10 +67,9 @@ export default function DeleteEventButton({ eventId, eventTitle }: DeleteEventBu
             <div className="mb-6 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
               <AlertTriangle className="h-6 w-6 shrink-0 text-amber-600" aria-hidden />
               <div>
-                <p className="font-medium text-amber-900">Caution</p>
+                <p className="font-medium text-amber-900">Move to trash</p>
                 <p className="mt-1 text-sm text-amber-800">
-                  This will permanently delete <strong>{eventTitle}</strong> and all its registrations.
-                  This action cannot be undone.
+                  <strong>{eventTitle}</strong> will be moved to trash. It can be restored by a super admin within 30 days, after which it will be permanently deleted.
                 </p>
               </div>
             </div>

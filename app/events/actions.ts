@@ -50,7 +50,10 @@ async function fetchPublicEvents(): Promise<Event[]> {
       .limit(100)
       .get()
     const events: Event[] = []
-    snapshot.forEach((doc) => events.push(toEvent(doc)))
+    snapshot.forEach((doc) => {
+      if (doc.data().deletedAt) return
+      events.push(toEvent(doc))
+    })
     return events
   } catch (error) {
     console.error('Error fetching events:', error)
@@ -70,6 +73,7 @@ async function fetchPublicEvent(id: string): Promise<Event | null> {
   try {
     const doc = await adminDb.collection('events').doc(id).get()
     if (!doc.exists) return null
+    if (doc.data()?.deletedAt) return null
     return toEvent(doc)
   } catch (error) {
     console.error('Error fetching event:', error)
@@ -101,6 +105,7 @@ async function fetchPublicEventFeaturedRegistrations(
     const list: FeaturedApplicant[] = []
     snapshot.forEach((doc) => {
       const data = doc.data()
+      if (data.deletedAt) return
       const pos = data.position
       const hasResultNotified = data.resultNotifiedAt != null
       if (hasResultNotified) {

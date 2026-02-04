@@ -17,6 +17,10 @@ export type Registration = {
   /** ISO date when result email was sent; null = not yet notified */
   resultNotifiedAt?: string | null
   createdAt: Date | string
+  /** ISO date when soft-deleted; null = active */
+  deletedAt?: string | null
+  /** UID of admin who deleted */
+  deletedBy?: string
 }
 
 /** Public-facing featured applicant (position 1–20) */

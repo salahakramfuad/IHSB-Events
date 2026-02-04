@@ -99,6 +99,7 @@ async function getSchoolStatsFromDb(
       .get()
     regsSnap.docs.forEach((regDoc) => {
       const data = regDoc.data()
+      if (data.deletedAt) return
       const school = (data.school ?? '').trim() || 'Unknown'
       if (!stats[school]) stats[school] = { participants: 0, winners: 0 }
       stats[school].participants += 1
@@ -112,6 +113,7 @@ async function getSchoolStatsFromDb(
     const regsSnap = await adminDb.collectionGroup('registrations').get()
     regsSnap.docs.forEach((regDoc) => {
       const data = regDoc.data()
+      if (data.deletedAt) return
       const school = (data.school ?? '').trim() || 'Unknown'
       if (!stats[school]) stats[school] = { participants: 0, winners: 0 }
       stats[school].participants += 1
@@ -186,7 +188,11 @@ export async function getAdminEvents(): Promise<Event[]> {
   try {
     const snapshot = await adminDb.collection('events').get()
     const events: Event[] = []
-    snapshot.forEach((doc) => events.push(toEvent(doc)))
+    snapshot.forEach((doc) => {
+      const data = doc.data()
+      if (data.deletedAt) return
+      events.push(toEvent(doc))
+    })
     events.sort((a, b) => {
       const ta = new Date(a.createdAt).getTime()
       const tb = new Date(b.createdAt).getTime()
@@ -204,6 +210,8 @@ export async function getAdminEvent(id: string): Promise<Event | null> {
   try {
     const doc = await adminDb.collection('events').doc(id).get()
     if (!doc.exists) return null
+    const data = doc.data()!
+    if (data.deletedAt) return null
     return toEvent(doc)
   } catch (error) {
     console.error('Error fetching event:', error)
@@ -367,6 +375,7 @@ export async function updateEvent(
   }
 }
 
+/** Soft-delete event (moves to trash for 30 days). Super admins can restore from trash. */
 export async function deleteEvent(id: string): Promise<{ success: boolean; error?: string }> {
   if (!adminDb) return { success: false, error: 'Database not available' }
   const allowed = await canEditOrDeleteEvent(id)
@@ -374,23 +383,176 @@ export async function deleteEvent(id: string): Promise<{ success: boolean; error
     return { success: false, error: 'You can only delete events you created. Super admins can delete any event.' }
   }
   try {
-    const ref = adminDb.collection('events').doc(id)
-    const regs = await ref.collection('registrations').get()
-    const batch = adminDb.batch()
-    regs.docs.forEach((d) => batch.delete(d.ref))
-    batch.delete(ref)
-    await batch.commit()
+    const eventDoc = await adminDb.collection('events').doc(id).get()
+    if (!eventDoc.exists) return { success: false, error: 'Event not found' }
+    if (eventDoc.data()?.deletedAt) return { success: false, error: 'Event is already in trash.' }
+
+    const cookieStore = await cookies()
+    const token = cookieStore.get('auth-token')?.value
+    const profile = await getCurrentAdminProfile(token)
+    const deletedBy = profile?.uid ?? 'admin'
+    const deletedAt = new Date().toISOString()
+
+    await adminDb.collection('events').doc(id).update({
+      deletedAt,
+      deletedBy,
+      updatedAt: new Date(),
+    })
     revalidatePath('/admin')
     revalidatePath('/admin/events')
     revalidatePath('/')
     revalidateTag('events', 'max')
     revalidateTag('admin-dashboard', 'max')
     revalidateTag(`event-${id}`, 'max')
+    revalidateTag('trash', 'max')
     return { success: true }
   } catch (error) {
     console.error('Error deleting event:', error)
     return { success: false, error: String(error) }
   }
+}
+
+/** Restore a soft-deleted event. Super admins only. */
+export async function restoreEvent(id: string): Promise<{ success: boolean; error?: string }> {
+  if (!adminDb) return { success: false, error: 'Database not available' }
+  const cookieStore = await cookies()
+  const token = cookieStore.get('auth-token')?.value
+  const profile = await getCurrentAdminProfile(token)
+  if (profile?.role !== 'superAdmin') {
+    return { success: false, error: 'Only super admins can restore events.' }
+  }
+  try {
+    await adminDb.collection('events').doc(id).update({
+      deletedAt: null,
+      deletedBy: null,
+      updatedAt: new Date(),
+    })
+    revalidatePath('/admin')
+    revalidatePath('/admin/events')
+    revalidatePath('/')
+    revalidateTag('events', 'max')
+    revalidateTag('admin-dashboard', 'max')
+    revalidateTag(`event-${id}`, 'max')
+    revalidateTag('trash', 'max')
+    return { success: true }
+  } catch (error) {
+    console.error('Error restoring event:', error)
+    return { success: false, error: String(error) }
+  }
+}
+
+export type TrashedEvent = Event & { deletedAt: string; deletedBy?: string }
+
+export async function getTrashedEvents(): Promise<TrashedEvent[]> {
+  if (!adminDb) return []
+  try {
+    const snapshot = await adminDb.collection('events').get()
+    const events: TrashedEvent[] = []
+    snapshot.forEach((doc) => {
+      const data = doc.data()
+      if (!data.deletedAt) return
+      events.push({ ...toEvent(doc), deletedAt: data.deletedAt, deletedBy: data.deletedBy } as TrashedEvent)
+    })
+    events.sort((a, b) => new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime())
+    return events
+  } catch (error) {
+    console.error('Error fetching trashed events:', error)
+    return []
+  }
+}
+
+export type TrashedRegistration = Registration & { eventId: string; eventTitle: string; deletedAt: string; deletedBy?: string }
+
+export async function getTrashedRegistrations(): Promise<TrashedRegistration[]> {
+  if (!adminDb) return []
+  try {
+    const eventsSnap = await adminDb.collection('events').get()
+    const list: TrashedRegistration[] = []
+    for (const eventDoc of eventsSnap.docs) {
+      const eventData = eventDoc.data()
+      if (eventData.deletedAt) continue
+      const eventTitle = eventData.title ?? 'Event'
+      const regsSnap = await eventDoc.ref.collection('registrations').get()
+      regsSnap.docs.forEach((regDoc) => {
+        const data = regDoc.data()
+        if (!data.deletedAt) return
+        const createdAt = data.createdAt?.toDate?.() ?? data.createdAt
+        list.push({
+          id: regDoc.id,
+          registrationId: data.registrationId ?? regDoc.id,
+          name: data.name ?? '',
+          email: data.email ?? '',
+          phone: data.phone ?? '',
+          school: data.school ?? '',
+          note: data.note ?? '',
+          category: data.category ?? undefined,
+          position: typeof data.position === 'number' && data.position >= 1 && data.position <= 20 ? data.position : null,
+          paymentStatus: data.paymentStatus ?? undefined,
+          bkashTrxId: data.bkashTrxId ?? undefined,
+          resultNotifiedAt: undefined,
+          createdAt: createdAt instanceof Date ? createdAt.toISOString() : (createdAt as string) ?? '',
+          deletedAt: data.deletedAt,
+          deletedBy: data.deletedBy,
+          eventId: eventDoc.id,
+          eventTitle,
+        })
+      })
+    }
+    list.sort((a, b) => new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime())
+    return list
+  } catch (error) {
+    console.error('Error fetching trashed registrations:', error)
+    return []
+  }
+}
+
+const TRASH_RETENTION_DAYS = 30
+
+/** Permanently delete items in trash older than 30 days. Call via cron. */
+export async function purgeExpiredTrash(): Promise<{ eventsPurged: number; registrationsPurged: number }> {
+  if (!adminDb) return { eventsPurged: 0, registrationsPurged: 0 }
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - TRASH_RETENTION_DAYS)
+  const cutoffIso = cutoff.toISOString()
+  let eventsPurged = 0
+  let registrationsPurged = 0
+  try {
+    const eventsSnap = await adminDb.collection('events').get()
+    const batch = adminDb.batch()
+    for (const eventDoc of eventsSnap.docs) {
+      const data = eventDoc.data()
+      if (!data.deletedAt || data.deletedAt >= cutoffIso) continue
+      const regsSnap = await eventDoc.ref.collection('registrations').get()
+      regsSnap.docs.forEach((d) => batch.delete(d.ref))
+      batch.delete(eventDoc.ref)
+      eventsPurged += 1
+    }
+    const regsToPurge: { eventId: string; regId: string }[] = []
+    for (const eventDoc of eventsSnap.docs) {
+      const eventData = eventDoc.data()
+      if (eventData.deletedAt) continue
+      const regsSnap = await eventDoc.ref.collection('registrations').get()
+      regsSnap.docs.forEach((regDoc) => {
+        const regData = regDoc.data()
+        if (regData.deletedAt && regData.deletedAt < cutoffIso) {
+          regsToPurge.push({ eventId: eventDoc.id, regId: regDoc.id })
+        }
+      })
+    }
+    for (const { eventId, regId } of regsToPurge) {
+      batch.delete(adminDb.collection('events').doc(eventId).collection('registrations').doc(regId))
+      registrationsPurged += 1
+    }
+    if (eventsPurged > 0 || registrationsPurged > 0) {
+      await batch.commit()
+    }
+    revalidateTag('trash', 'max')
+    revalidateTag('events', 'max')
+    revalidateTag('admin-dashboard', 'max')
+  } catch (error) {
+    console.error('Error purging trash:', error)
+  }
+  return { eventsPurged, registrationsPurged }
 }
 
 export async function getEventRegistrations(eventId: string): Promise<Registration[]> {
@@ -404,6 +566,7 @@ export async function getEventRegistrations(eventId: string): Promise<Registrati
     const list: Registration[] = []
     snapshot.forEach((doc) => {
       const data = doc.data()
+      if (data.deletedAt) return
       const createdAt = data.createdAt?.toDate?.() ?? data.createdAt
       const pos = data.position
       let resultNotifiedAtRaw = data.resultNotifiedAt?.toDate?.() ?? data.resultNotifiedAt
@@ -467,6 +630,7 @@ export async function updateRegistrationPosition(
       .doc(registrationDocId)
     const doc = await ref.get()
     if (!doc.exists) return { success: false, error: 'Registration not found' }
+    if (doc.data()?.deletedAt) return { success: false, error: 'Cannot update a deleted registration. Restore it first from Trash.' }
     await ref.update({ position: position ?? null })
     revalidatePath(`/admin/events/${eventId}`)
     revalidatePath(`/admin/events/${eventId}/registrations`)
@@ -479,7 +643,7 @@ export async function updateRegistrationPosition(
   }
 }
 
-/** Delete a registration. Super admins only. Sends notification email to the registree. */
+/** Soft-delete registration (moves to trash for 30 days). Super admins can restore. Sends notification email. */
 export async function deleteRegistration(
   eventId: string,
   registrationDocId: string
@@ -499,16 +663,20 @@ export async function deleteRegistration(
       .doc(registrationDocId)
     const regDoc = await regRef.get()
     if (!regDoc.exists) return { success: false, error: 'Registration not found' }
+    if (regDoc.data()?.deletedAt) return { success: false, error: 'Registration is already in trash.' }
 
     const regData = regDoc.data()!
     const event = await getAdminEvent(eventId)
     if (!event) return { success: false, error: 'Event not found' }
 
-    await regRef.delete()
+    const deletedAt = new Date().toISOString()
+    const deletedBy = profile.uid ?? 'admin'
+    await regRef.update({ deletedAt, deletedBy })
     revalidatePath(`/admin/events/${eventId}`)
     revalidatePath(`/admin/events/${eventId}/registrations`)
     revalidatePath(`/${eventId}`)
     revalidateTag('schools', 'max')
+    revalidateTag('trash', 'max')
 
     const email = (regData.email ?? '').trim().toLowerCase()
     const name = (regData.name ?? '').trim() || 'Registrant'
@@ -528,6 +696,42 @@ export async function deleteRegistration(
     return { success: true }
   } catch (error) {
     console.error('Error deleting registration:', error)
+    return { success: false, error: String(error) }
+  }
+}
+
+/** Restore a soft-deleted registration. Super admins only. */
+export async function restoreRegistration(
+  eventId: string,
+  registrationDocId: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!adminDb) return { success: false, error: 'Database not available' }
+  const cookieStore = await cookies()
+  const token = cookieStore.get('auth-token')?.value
+  const profile = await getCurrentAdminProfile(token)
+  if (profile?.role !== 'superAdmin') {
+    return { success: false, error: 'Only super admins can restore registrations.' }
+  }
+  try {
+    const regRef = adminDb
+      .collection('events')
+      .doc(eventId)
+      .collection('registrations')
+      .doc(registrationDocId)
+    const regDoc = await regRef.get()
+    if (!regDoc.exists) return { success: false, error: 'Registration not found' }
+    const data = regDoc.data()!
+    if (!data.deletedAt) return { success: false, error: 'Registration is not in trash.' }
+
+    await regRef.update({ deletedAt: null, deletedBy: null })
+    revalidatePath(`/admin/events/${eventId}`)
+    revalidatePath(`/admin/events/${eventId}/registrations`)
+    revalidatePath(`/${eventId}`)
+    revalidateTag('schools', 'max')
+    revalidateTag('trash', 'max')
+    return { success: true }
+  } catch (error) {
+    console.error('Error restoring registration:', error)
     return { success: false, error: String(error) }
   }
 }
@@ -553,6 +757,7 @@ export async function updateRegistration(
       .doc(registrationDocId)
     const regDoc = await regRef.get()
     if (!regDoc.exists) return { success: false, error: 'Registration not found' }
+    if (regDoc.data()?.deletedAt) return { success: false, error: 'Cannot update a deleted registration. Restore it first from Trash.' }
 
     const update: Record<string, unknown> = {}
     if (data.name != null && data.name.trim()) update.name = data.name.trim()

@@ -67,10 +67,13 @@ export async function POST(request: NextRequest) {
 
     const duplicateSnap = await regsRef.where('email', '==', normalizedEmail).limit(1).get()
     if (!duplicateSnap.empty) {
-      return NextResponse.json(
-        { error: 'You have already registered for this event with this email address.' },
-        { status: 409 }
-      )
+      const existing = duplicateSnap.docs[0].data()
+      if (!existing.deletedAt) {
+        return NextResponse.json(
+          { error: 'You have already registered for this event with this email address.' },
+          { status: 409 }
+        )
+      }
     }
 
     await ensureSchoolExists(school.trim())

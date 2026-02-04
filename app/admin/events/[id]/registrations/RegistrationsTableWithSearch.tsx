@@ -727,7 +727,7 @@ export default function RegistrationsTableWithSearch({
                 This action cannot be undone.
               </p>
               <p className="mt-2 text-sm text-amber-700">
-                The registree will be notified by email and provided with event contact details for any convenience.
+                The registration will be moved to trash (restorable within 30 days). The registree will be notified by email with event contact details.
               </p>
             </div>
             <p className="mb-4 text-sm text-slate-600">

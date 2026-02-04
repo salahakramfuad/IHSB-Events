@@ -41,7 +41,10 @@ export async function GET() {
   try {
     const snapshot = await adminDb.collection('events').get()
     const events: Event[] = []
-    snapshot.forEach((doc) => events.push(toEvent(doc)))
+    snapshot.forEach((doc) => {
+      if (doc.data().deletedAt) return
+      events.push(toEvent(doc))
+    })
     events.sort((a, b) => {
       const ta = new Date(a.createdAt).getTime()
       const tb = new Date(b.createdAt).getTime()

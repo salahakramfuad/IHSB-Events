@@ -32,10 +32,22 @@ export async function GET(
     if (!snap.empty) {
       const regDoc = snap.docs[0]
       const data = regDoc.data()
+      if (data.deletedAt) {
+        return NextResponse.json({
+          verified: false,
+          message: 'Registration not found',
+        })
+      }
       const eventId = regDoc.ref.parent.parent?.id
       if (eventId) {
         const eventDoc = await adminDb.collection('events').doc(eventId).get()
         const eventData = eventDoc.exists ? eventDoc.data() : {}
+        if (eventData?.deletedAt) {
+          return NextResponse.json({
+            verified: false,
+            message: 'Registration not found',
+          })
+        }
         return NextResponse.json({
           verified: true,
           name: data.name || 'Unknown',
@@ -52,9 +64,11 @@ export async function GET(
     // Fallback: try by document ID
     const eventsSnapshot = await adminDb.collection('events').limit(100).get()
     for (const eventDoc of eventsSnapshot.docs) {
+      if (eventDoc.data().deletedAt) continue
       const byDocId = await eventDoc.ref.collection('registrations').doc(id).get()
       if (byDocId.exists) {
         const data = byDocId.data()
+        if (data?.deletedAt) continue
         const eventData = eventDoc.data()
         return NextResponse.json({
           verified: true,

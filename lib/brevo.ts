@@ -291,8 +291,8 @@ export async function sendRegistrationDeletedEmail({
     <tr>
       <td style="background:linear-gradient(135deg,#d97706 0%,#f59e0b 100%);padding:40px 30px;text-align:center;">
         <div style="font-size:48px;margin-bottom:10px;">📋</div>
-        <h1 style="color:#ffffff;margin:0;font-size:28px;font-weight:700;">Registration Update</h1>
-        <p style="color:#fef3c7;margin:10px 0 0;font-size:16px;">Your registration for ${event.title} has been removed</p>
+        <h1 style="color:#ffffff;margin:0;font-size:28px;font-weight:700;">Registration Cancelled</h1>
+        <p style="color:#fef3c7;margin:10px 0 0;font-size:16px;">Your registration for ${event.title} has been cancelled</p>
       </td>
     </tr>
     
@@ -302,7 +302,7 @@ export async function sendRegistrationDeletedEmail({
         <p style="color:#334155;font-size:18px;margin:0 0 20px;">Dear <strong>${firstName}</strong>,</p>
         
         <p style="color:#475569;font-size:16px;line-height:1.7;margin:0 0 25px;">
-          This is to inform you that your registration for <strong>${event.title}</strong> has been removed by our admin team.
+          This is to inform you that your registration for <strong>${event.title}</strong> has been cancelled by our admin team.
         </p>
         
         <p style="color:#475569;font-size:16px;line-height:1.7;margin:0 0 25px;">
@@ -381,7 +381,7 @@ export async function sendRegistrationDeletedEmail({
     const sendSmtpEmail = new brevo.SendSmtpEmail()
     sendSmtpEmail.sender = { email: senderEmail, name: senderName }
     sendSmtpEmail.to = [{ email: normalizedEmail, name }]
-    sendSmtpEmail.subject = `Registration Removed: ${event.title} - ${registrationId}`
+    sendSmtpEmail.subject = `Registration Cancelled: ${event.title} - ${registrationId}`
     sendSmtpEmail.htmlContent = emailHtml
 
     const data = await apiInstance.sendTransacEmail(sendSmtpEmail)

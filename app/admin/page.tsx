@@ -52,13 +52,14 @@ async function fetchDashboardStats() {
     .limit(100)
     .get()
 
-  const totalEvents = eventsSnap.size
   const eventsWithDate: { id: string; date: string | string[]; data: Record<string, unknown> }[] = []
   eventsSnap.docs.forEach((d) => {
     const data = d.data()
+    if (data.deletedAt) return
     const date = parseDate(data.date)
     eventsWithDate.push({ id: d.id, date: date as string | string[], data: { ...data, date } })
   })
+  const totalEvents = eventsWithDate.length
   const upcoming = eventsWithDate.filter((e) => isEventUpcoming(e.date))
 
   function getAmountForReg(
@@ -75,15 +76,17 @@ async function fetchDashboardStats() {
   }
 
   const regCounts = await Promise.all(
-    eventsSnap.docs.map(async (doc) => {
+    eventsWithDate.map(async ({ id }) => {
+      const doc = eventsSnap.docs.find((d) => d.id === id)
+      if (!doc) return { id, count: 0, amountCollected: 0, isPaid: false }
       const data = doc.data()
       const isPaid = !!data.isPaid && (
         (typeof data.amount === 'number' && data.amount > 0) ||
         (data.categoryAmounts && typeof data.categoryAmounts === 'object' && Object.keys(data.categoryAmounts).length > 0)
       )
 
-      const totalSnap = await doc.ref.collection('registrations').count().get()
-      const count = (totalSnap.data() as { count?: number })?.count ?? 0
+      const regsSnap = await doc.ref.collection('registrations').get()
+      const count = regsSnap.docs.filter((d) => !d.data().deletedAt).length
 
       let amountCollected = 0
       if (isPaid) {
@@ -98,6 +101,7 @@ async function fetchDashboardStats() {
         }
         paidRegsSnap.docs.forEach((regDoc) => {
           const regData = regDoc.data()
+          if (regData.deletedAt) return
           amountCollected += getAmountForReg(eventData, {
             paymentStatus: regData.paymentStatus,
             category: regData.category,
