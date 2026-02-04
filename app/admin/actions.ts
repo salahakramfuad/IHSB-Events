@@ -160,6 +160,34 @@ export async function getSchoolsWithStats(eventId?: string | null): Promise<Scho
   )()
 }
 
+async function fetchEventOptionsForFilter(): Promise<{ id: string; title: string }[]> {
+  if (!adminDb) return []
+  try {
+    const snapshot = await adminDb
+      .collection('events')
+      .orderBy('createdAt', 'desc')
+      .limit(50)
+      .get()
+    const options: { id: string; title: string }[] = []
+    snapshot.forEach((doc) => {
+      const data = doc.data()
+      if (data.deletedAt) return
+      options.push({ id: doc.id, title: String(data.title ?? 'Untitled') })
+    })
+    return options
+  } catch (error) {
+    console.error('Error fetching event options:', error)
+    return []
+  }
+}
+
+export async function getEventOptionsForFilter(): Promise<{ id: string; title: string }[]> {
+  return unstable_cache(fetchEventOptionsForFilter, ['event-options-filter'], {
+    revalidate: 60,
+    tags: ['events'],
+  })()
+}
+
 export async function getAdmins(): Promise<
   { list: { uid: string; email: string; role: string; displayName?: string; photoURL?: string }[]; forbidden: boolean }
 > {

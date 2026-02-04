@@ -1,4 +1,4 @@
-import { getAdminEvents, getSchoolsWithStats } from '@/app/admin/actions'
+import { getEventOptionsForFilter, getSchoolsWithStats } from '@/app/admin/actions'
 import SchoolsPageClient from './SchoolsPageClient'
 
 export default async function AdminSchoolsPage({
@@ -7,11 +7,10 @@ export default async function AdminSchoolsPage({
   searchParams: Promise<{ eventId?: string }>
 }) {
   const { eventId } = await searchParams
-  const [events, schools] = await Promise.all([
-    getAdminEvents(),
+  const [eventOptions, schools] = await Promise.all([
+    getEventOptionsForFilter(),
     getSchoolsWithStats(eventId || undefined),
   ])
-  const eventOptions = events.map((e) => ({ id: e.id, title: e.title }))
   return (
     <SchoolsPageClient
       events={eventOptions}
