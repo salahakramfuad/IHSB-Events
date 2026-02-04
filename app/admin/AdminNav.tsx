@@ -74,23 +74,8 @@ export default function AdminNav({ isCollapsed }: AdminNavProps) {
             {!isCollapsed && <span>Profile</span>}
           </Link>
           {profile?.role === 'superAdmin' && (
-            <>
-              <Link
-                href="/admin/trash"
-                title={isCollapsed ? 'Trash' : undefined}
-                className={clsx(
-                  'flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition',
-                  isCollapsed ? 'justify-center' : 'gap-3',
-                  pathname.startsWith('/admin/trash')
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                )}
-              >
-                <Trash2 className="h-5 w-5 shrink-0" aria-hidden />
-                {!isCollapsed && <span>Trash</span>}
-              </Link>
-              <Link
-                href="/admin/admins"
+            <Link
+              href="/admin/admins"
               title={isCollapsed ? 'Admins' : undefined}
               className={clsx(
                 'flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition',
@@ -103,7 +88,6 @@ export default function AdminNav({ isCollapsed }: AdminNavProps) {
               <Users className="h-5 w-5 shrink-0" aria-hidden />
               {!isCollapsed && <span>Admins</span>}
             </Link>
-            </>
           )}
         </div>
       </nav>
@@ -139,6 +123,22 @@ export default function AdminNav({ isCollapsed }: AdminNavProps) {
                 {displayLabel}
               </span>
             )}
+          </Link>
+        )}
+        {profile?.role === 'superAdmin' && (
+          <Link
+            href="/admin/trash"
+            title={isCollapsed ? 'Trash' : undefined}
+            className={clsx(
+              'mb-2 flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition',
+              isCollapsed ? 'justify-center' : 'gap-3',
+              pathname.startsWith('/admin/trash')
+                ? 'bg-indigo-50 text-indigo-700'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            )}
+          >
+            <Trash2 className="h-5 w-5 shrink-0" aria-hidden />
+            {!isCollapsed && <span>Trash</span>}
           </Link>
         )}
         <form action="/api/auth/logout" method="POST">
