@@ -1,4 +1,5 @@
 import dynamic from 'next/dynamic'
+import { unstable_cache } from 'next/cache'
 import { getAdminEvent, getEventRegistrations, getCurrentAdminProfileInServer } from '@/app/admin/actions'
 import { notFound } from 'next/navigation'
 
@@ -12,6 +13,24 @@ const EventDetailWithEdit = dynamic(() => import('./EventDetailWithEdit'), {
   ),
 })
 
+export const revalidate = 60
+
+async function getCachedAdminEvent(id: string) {
+  return unstable_cache(
+    () => getAdminEvent(id),
+    ['admin-event', id],
+    { revalidate: 60, tags: [`event-${id}`] }
+  )()
+}
+
+async function getCachedEventRegistrations(id: string) {
+  return unstable_cache(
+    () => getEventRegistrations(id),
+    ['admin-event-registrations', id],
+    { revalidate: 30, tags: [`event-${id}`] }
+  )()
+}
+
 export default async function AdminEventDetailPage({
   params,
 }: {
@@ -19,8 +38,8 @@ export default async function AdminEventDetailPage({
 }) {
   const { id } = await params
   const [event, registrations, profile] = await Promise.all([
-    getAdminEvent(id),
-    getEventRegistrations(id),
+    getCachedAdminEvent(id),
+    getCachedEventRegistrations(id),
     getCurrentAdminProfileInServer(),
   ])
   if (!event) notFound()

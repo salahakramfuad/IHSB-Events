@@ -3,9 +3,9 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
 import { LayoutDashboard, Calendar, LogOut, User, Users, Building2, Trash2 } from 'lucide-react'
 import { clsx } from 'clsx'
+import type { AdminProfile } from '@/lib/get-admin'
 
 const navItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
@@ -13,26 +13,13 @@ const navItems = [
   { href: '/admin/schools', label: 'Schools', icon: Building2 },
 ]
 
-type Profile = { role?: string; email?: string; displayName?: string; photoURL?: string }
-
 interface AdminNavProps {
   isCollapsed: boolean
+  profile: AdminProfile | null
 }
 
-export default function AdminNav({ isCollapsed }: AdminNavProps) {
+export default function AdminNav({ isCollapsed, profile }: AdminNavProps) {
   const pathname = usePathname()
-  const [profile, setProfile] = useState<Profile | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/admin/me')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!cancelled && data) setProfile(data)
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [])
 
   const displayLabel = profile?.displayName?.trim() || profile?.email?.split('@')[0] || 'Account'
   const hasPhoto = profile?.photoURL?.trim() && (profile.photoURL.startsWith('http') || profile.photoURL.startsWith('/'))
