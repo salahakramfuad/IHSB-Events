@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
-import { Search, Users, Send, CheckCircle, Pencil, FileDown, Download, FileStack, Trash2, X } from 'lucide-react'
+import { Search, Users, Send, CheckCircle, Pencil, FileDown, Download, FileStack, Trash2, X, Copy } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import type { Registration } from '@/types/registration'
 import type { Event } from '@/types/event'
@@ -384,6 +384,9 @@ export default function RegistrationsTableWithSearch({
                 Position
               </th>
               <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Registration ID
+              </th>
+              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Name
               </th>
               <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -466,6 +469,25 @@ export default function RegistrationsTableWithSearch({
                         : '—'}
                     </span>
                   )}
+                </td>
+                <td className="px-5 py-4">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-sm text-slate-700">
+                      {reg.registrationId || reg.id}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const id = reg.registrationId || reg.id
+                        navigator.clipboard.writeText(id)
+                      }}
+                      className="rounded p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                      title="Copy registration ID"
+                      aria-label={`Copy ${reg.registrationId || reg.id}`}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </td>
                 <td className="px-5 py-4 text-sm font-medium text-slate-900">{reg.name}</td>
                 <td className="px-5 py-4 text-sm text-slate-600">{reg.category ?? '—'}</td>
