@@ -4,7 +4,7 @@ import type { DocumentSnapshot } from 'firebase-admin/firestore'
 import { cookies } from 'next/headers'
 import { unstable_cache } from 'next/cache'
 import { adminDb } from '@/lib/firebase-admin'
-import { getCurrentAdminProfile } from '@/lib/get-admin'
+import { getCurrentAdminProfile, type AdminProfile } from '@/lib/get-admin'
 import type { Event } from '@/types/event'
 import type { Registration } from '@/types/registration'
 import { revalidatePath, revalidateTag } from 'next/cache'
@@ -36,7 +36,7 @@ async function canEditOrDeleteEvent(eventId: string): Promise<boolean> {
   return eventDoc.data()?.createdBy === profile.uid
 }
 
-export async function getCurrentAdminProfileInServer(): Promise<{ uid: string; role: string; displayName?: string; email?: string } | null> {
+export async function getCurrentAdminProfileInServer(): Promise<AdminProfile | null> {
   const cookieStore = await cookies()
   const token = cookieStore.get('auth-token')?.value
   return getCurrentAdminProfile(token)
