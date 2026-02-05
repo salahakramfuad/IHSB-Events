@@ -22,63 +22,75 @@ interface VerificationResult {
 }
 
 async function verifyRegistration(id: string): Promise<VerificationResult> {
-  try {
-    if (!adminDb) {
-      return { verified: false, message: 'Database not configured' }
-    }
+  if (!adminDb) {
+    return { verified: false, message: 'Database not configured' }
+  }
 
-    // Single collectionGroup query - O(1) reads instead of O(events * regs)
+  const idTrimmed = id?.trim()
+  if (!idTrimmed) {
+    return { verified: false, message: 'Registration ID is required' }
+  }
+
+  const toResult = (
+    data: Record<string, unknown>,
+    eventId: string,
+    eventData: Record<string, unknown>,
+    regId: string
+  ): VerificationResult => ({
+    verified: true,
+    name: (data.name as string) || 'Unknown',
+    school: (data.school as string) || '',
+    eventTitle: (eventData?.title as string) || 'Unknown Event',
+    eventId,
+    registrationId: regId,
+    category: (data.category as string) || null,
+    position: (data.position as number) ?? null,
+  })
+
+  try {
+    // 1. Try collectionGroup query by registrationId (requires Firestore index)
     const snap = await adminDb
       .collectionGroup('registrations')
-      .where('registrationId', '==', id)
+      .where('registrationId', '==', idTrimmed)
       .limit(1)
       .get()
 
     if (!snap.empty) {
       const regDoc = snap.docs[0]
       const data = regDoc.data()
+      if (data.deletedAt) return { verified: false, message: 'Registration not found' }
       const eventId = regDoc.ref.parent.parent?.id
       if (eventId) {
         const eventDoc = await adminDb.collection('events').doc(eventId).get()
-        const eventData = eventDoc.exists ? eventDoc.data() : {}
-        return {
-          verified: true,
-          name: data.name || 'Unknown',
-          school: data.school || '',
-          eventTitle: (eventData?.title as string) || 'Unknown Event',
-          eventId,
-          registrationId: id,
-          category: data.category || null,
-          position: data.position || null,
-        }
+        if (eventDoc.data()?.deletedAt) return { verified: false, message: 'Registration not found' }
+        const eventData = eventDoc.exists ? eventDoc.data() ?? {} : {}
+        return toResult(data, eventId, eventData, idTrimmed)
       }
     }
+  } catch (err) {
+    console.error('Verification collectionGroup error:', err)
+    // Index may be missing; fall through to doc-by-id fallback
+  }
 
-    // Fallback: try by document ID (when registrationId === doc id)
-    const eventsSnapshot = await adminDb.collection('events').limit(100).get()
+  // 2. Fallback: find by document ID (for legacy regs or when index unavailable)
+  try {
+    const eventsSnapshot = await adminDb.collection('events').get()
     for (const eventDoc of eventsSnapshot.docs) {
-      const byDocId = await eventDoc.ref.collection('registrations').doc(id).get()
-      if (byDocId.exists) {
-        const data = byDocId.data()
-        const eventData = eventDoc.data()
-        return {
-          verified: true,
-          name: data?.name || 'Unknown',
-          school: data?.school || '',
-          eventTitle: eventData?.title || 'Unknown Event',
-          eventId: eventDoc.id,
-          registrationId: data?.registrationId || id,
-          category: data?.category || null,
-          position: data?.position || null,
-        }
+      if (eventDoc.data()?.deletedAt) continue
+      const regDoc = await eventDoc.ref.collection('registrations').doc(idTrimmed).get()
+      if (regDoc.exists) {
+        const data = regDoc.data() ?? {}
+        if (data.deletedAt) continue
+        const eventData = eventDoc.data() ?? {}
+        return toResult(data, eventDoc.id, eventData, (data.registrationId as string) || idTrimmed)
       }
     }
-
-    return { verified: false, message: 'Registration not found' }
-  } catch (error) {
-    console.error('Verification error:', error)
+  } catch (err) {
+    console.error('Verification fallback error:', err)
     return { verified: false, message: 'Verification failed' }
   }
+
+  return { verified: false, message: 'Registration not found' }
 }
 
 export default async function VerifyPage({

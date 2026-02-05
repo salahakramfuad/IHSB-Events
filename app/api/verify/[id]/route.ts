@@ -7,8 +7,9 @@ export async function GET(
 ) {
   try {
     const { id } = await params
+    const idTrimmed = id?.trim()
 
-    if (!id) {
+    if (!idTrimmed) {
       return NextResponse.json(
         { verified: false, message: 'Registration ID is required' },
         { status: 400 }
@@ -25,7 +26,7 @@ export async function GET(
     // Single collectionGroup query - O(1) reads instead of O(events * regs)
     const snap = await adminDb
       .collectionGroup('registrations')
-      .where('registrationId', '==', id)
+      .where('registrationId', '==', idTrimmed)
       .limit(1)
       .get()
 
@@ -54,18 +55,18 @@ export async function GET(
           school: data.school || '',
           eventTitle: eventData?.title || 'Unknown Event',
           eventId,
-          registrationId: id,
+          registrationId: idTrimmed,
           category: data.category || null,
           position: data.position || null,
         })
       }
     }
 
-    // Fallback: try by document ID
-    const eventsSnapshot = await adminDb.collection('events').limit(100).get()
+    // Fallback: try by document ID (for legacy regs or when index unavailable)
+    const eventsSnapshot = await adminDb.collection('events').get()
     for (const eventDoc of eventsSnapshot.docs) {
-      if (eventDoc.data().deletedAt) continue
-      const byDocId = await eventDoc.ref.collection('registrations').doc(id).get()
+      if (eventDoc.data()?.deletedAt) continue
+      const byDocId = await eventDoc.ref.collection('registrations').doc(idTrimmed).get()
       if (byDocId.exists) {
         const data = byDocId.data()
         if (data?.deletedAt) continue
@@ -76,7 +77,7 @@ export async function GET(
           school: data?.school || '',
           eventTitle: eventData?.title || 'Unknown Event',
           eventId: eventDoc.id,
-          registrationId: data?.registrationId || id,
+          registrationId: data?.registrationId || idTrimmed,
           category: data?.category || null,
           position: data?.position || null,
         })
