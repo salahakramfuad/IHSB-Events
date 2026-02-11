@@ -8,6 +8,7 @@ import { notFound } from 'next/navigation'
 import EventLogo from '@/components/EventLogo'
 import { cookies } from 'next/headers'
 import { getCurrentUser } from '@/lib/get-current-user'
+import { getStudentProfileByUid } from '@/lib/get-student-profile'
 
 const RegistrationForm = dynamic(() => import('./RegistrationForm'), {
   loading: () => (
@@ -149,6 +150,17 @@ export default async function EventDetailPage({
   const currentUser = await getCurrentUser(token)
   const event = await getPublicEvent(id)
   if (!event) notFound()
+
+  let studentPrefill: { name: string; email: string; phone: string; school: string } | undefined
+  if (currentUser) {
+    const profile = await getStudentProfileByUid(currentUser.uid)
+    studentPrefill = {
+      name: profile?.displayName ?? '',
+      email: currentUser.email ?? '',
+      phone: profile?.phone ?? '',
+      school: profile?.school ?? '',
+    }
+  }
 
   const eventDates = parseEventDates(event.date)
   const hasPassed = hasEventPassed(event.date)
@@ -349,6 +361,10 @@ export default async function EventDetailPage({
                   isPaid={event.isPaid}
                   amount={event.amount}
                   categoryAmounts={event.categoryAmounts}
+                  initialName={studentPrefill?.name}
+                  initialEmail={studentPrefill?.email}
+                  initialPhone={studentPrefill?.phone}
+                  initialSchool={studentPrefill?.school}
                 />
               ) : (
                 <div className="sticky top-24 rounded-2xl border border-[hsl(var(--event-accent)/0.2)] bg-white/95 p-6 text-center text-slate-700 shadow-sm backdrop-blur">

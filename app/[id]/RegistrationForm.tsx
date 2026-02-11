@@ -14,6 +14,11 @@ interface RegistrationFormProps {
   amount?: number
   /** Per-category amounts in BDT. Overrides amount when category is selected. Use 0 for free. */
   categoryAmounts?: Record<string, number>
+  /** Pre-fill from logged-in student profile */
+  initialName?: string
+  initialEmail?: string
+  initialPhone?: string
+  initialSchool?: string
 }
 
 function getEffectiveAmount(
@@ -33,18 +38,23 @@ export default function RegistrationForm({
   isPaid,
   amount,
   categoryAmounts = {},
+  initialName = '',
+  initialEmail = '',
+  initialPhone = '',
+  initialSchool = '',
 }: RegistrationFormProps) {
   const hasCategories = Array.isArray(categories) && categories.length > 0
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error' | 'redirecting'>('idle')
   const [message, setMessage] = useState('')
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    school: '',
+    name: initialName,
+    email: initialEmail,
+    phone: initialPhone,
+    school: initialSchool,
     note: '',
     category: '',
   })
+  const isPrefilled = !!initialEmail
 
   const effectiveAmount = getEffectiveAmount(
     formData.category,
@@ -245,9 +255,13 @@ export default function RegistrationForm({
             required
             value={formData.email}
             onChange={handleChange}
-            className={inputClass}
+            readOnly={isPrefilled}
+            className={`${inputClass} ${isPrefilled ? 'bg-slate-50 cursor-default' : ''}`}
             placeholder="you@example.com"
           />
+          {isPrefilled && (
+            <p className="mt-1 text-xs text-slate-500">From your account</p>
+          )}
         </div>
         <div>
           <label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-slate-700">
