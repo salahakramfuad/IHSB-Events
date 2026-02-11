@@ -62,12 +62,14 @@ export async function GET(request: NextRequest) {
         createdAt = new Date().toISOString()
       }
 
+      const eventCreatedAt = eventDataRaw.createdAt as { toDate?: () => Date } | undefined
+      const eventUpdatedAt = eventDataRaw.updatedAt as { toDate?: () => Date } | undefined
       const event: Event = {
         id: eventSnap.id,
         ...eventDataRaw,
         date: dateValue as string,
-        createdAt: eventDataRaw.createdAt?.toDate?.() ?? eventDataRaw.createdAt,
-        updatedAt: eventDataRaw.updatedAt?.toDate?.() ?? eventDataRaw.updatedAt,
+        createdAt: eventCreatedAt?.toDate?.() ?? eventDataRaw.createdAt,
+        updatedAt: eventUpdatedAt?.toDate?.() ?? eventDataRaw.updatedAt,
         createdBy: (eventDataRaw.createdBy as string) ?? '',
         title: (eventDataRaw.title as string) ?? 'Event',
         location: (eventDataRaw.location as string) ?? '',
