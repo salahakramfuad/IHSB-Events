@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { adminDb } from '@/lib/firebase-admin'
+import { adminAuth, adminDb } from '@/lib/firebase-admin'
 import { createPayment } from '@/lib/bkash'
 
 function normalizeEmail(email: string): string {
@@ -8,6 +8,30 @@ function normalizeEmail(email: string): string {
 
 export async function POST(request: NextRequest) {
   try {
+    const token = request.cookies.get('auth-token')?.value
+    if (!token || !adminAuth) {
+      return NextResponse.json(
+        { error: 'You must sign in to register for events. Please create an account or sign in and try again.' },
+        { status: 401 }
+      )
+    }
+    let userId: string | undefined
+    try {
+      const decoded = await adminAuth.verifyIdToken(token)
+      if (decoded?.uid) userId = decoded.uid
+    } catch {
+      return NextResponse.json(
+        { error: 'Your session has expired. Please sign in again to register.' },
+        { status: 401 }
+      )
+    }
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'You must sign in to register for events. Please create an account or sign in and try again.' },
+        { status: 401 }
+      )
+    }
+
     const body = await request.json()
     const { eventId, clientGeneratedId, registrationData } = body
 

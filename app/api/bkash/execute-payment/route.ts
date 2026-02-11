@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
-import { adminDb } from '@/lib/firebase-admin'
+import { adminAuth, adminDb } from '@/lib/firebase-admin'
 import { executePayment } from '@/lib/bkash'
 import { sendIHSBConfirmationEmail } from '@/lib/brevo'
 import { generateRegistrationId } from '@/lib/registrationId'
@@ -42,6 +42,17 @@ export async function POST(request: NextRequest) {
 
     if (!adminDb) {
       return NextResponse.json({ error: 'Service unavailable' }, { status: 503 })
+    }
+
+    let userId: string | undefined
+    try {
+      const token = request.cookies.get('auth-token')?.value
+      if (token && adminAuth) {
+        const decoded = await adminAuth.verifyIdToken(token)
+        if (decoded?.uid) userId = decoded.uid
+      }
+    } catch {
+      // Proceed without userId if token missing/expired (e.g. callback after long delay)
     }
 
     const result = await executePayment(paymentID)
@@ -107,7 +118,7 @@ export async function POST(request: NextRequest) {
     const regRef = regsRef.doc(registrationId)
     const now = new Date()
 
-    await regRef.set({
+    const regPayload: Record<string, unknown> = {
       registrationId,
       name: name.trim(),
       email: normalizedEmail,
@@ -118,7 +129,10 @@ export async function POST(request: NextRequest) {
       createdAt: now,
       paymentStatus: 'completed',
       bkashTrxId: result.trxID ?? null,
-    })
+    }
+    if (userId) regPayload.userId = userId
+
+    await regRef.set(regPayload)
 
     const eventDoc = await adminDb.collection('events').doc(eventId).get()
     if (!eventDoc.exists) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
-import { adminDb } from '@/lib/firebase-admin'
+import { adminAuth, adminDb } from '@/lib/firebase-admin'
 import { generateRegistrationId } from '@/lib/registrationId'
 import { sendIHSBConfirmationEmail } from '@/lib/brevo'
 import { ensureSchoolExists } from '@/lib/schools'
@@ -30,6 +30,27 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedEmail = normalizeEmail(email)
+
+    let userId: string | undefined
+    try {
+      const token = request.cookies.get('auth-token')?.value
+      if (token && adminAuth) {
+        const decoded = await adminAuth.verifyIdToken(token)
+        if (decoded?.uid) {
+          userId = decoded.uid
+        }
+      }
+    } catch {
+      // Token invalid or expired
+    }
+
+    // Require an account to register for events
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'You must sign in to register for events. Please create an account or sign in and try again.' },
+        { status: 401 }
+      )
+    }
 
     if (!adminDb) {
       return NextResponse.json({ error: 'Service unavailable' }, { status: 503 })
@@ -88,6 +109,9 @@ export async function POST(request: NextRequest) {
       school: school.trim(),
       note: note != null ? String(note).trim() : '',
       createdAt: now,
+    }
+    if (userId) {
+      regData.userId = userId
     }
     if (eventCategories.length > 0 && category != null && String(category).trim()) {
       regData.category = String(category).trim()

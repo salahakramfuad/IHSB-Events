@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import PublicHeaderNav from './PublicHeaderNav'
 
 export default function PublicHeader() {
   return (
@@ -9,18 +10,19 @@ export default function PublicHeader() {
           href="/"
           className="flex items-center gap-3 text-lg font-semibold text-slate-900 transition hover:text-amber-600"
         >
-          <Image src="/logo.png" alt="IHSB Events" width={36} height={36} className="rounded-lg object-contain" priority />
+          <Image
+            src="/logo.png"
+            alt="IHSB Events"
+            width={36}
+            height={36}
+            className="rounded-lg object-contain"
+            priority
+          />
           IHSB Events
         </Link>
-        <nav>
-          <Link
-            href="/"
-            className="rounded-full px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-amber-100 hover:text-amber-800"
-          >
-            Events
-          </Link>
-        </nav>
+        <PublicHeaderNav />
       </div>
     </header>
   )
 }
+

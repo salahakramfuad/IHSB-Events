@@ -6,6 +6,8 @@ import { Calendar, Clock, MapPin, ArrowLeft, Award, Hash, Phone } from 'lucide-r
 import { getPublicEvent, getPublicEventFeaturedRegistrations } from '@/app/events/actions'
 import { notFound } from 'next/navigation'
 import EventLogo from '@/components/EventLogo'
+import { cookies } from 'next/headers'
+import { getCurrentUser } from '@/lib/get-current-user'
 
 const RegistrationForm = dynamic(() => import('./RegistrationForm'), {
   loading: () => (
@@ -142,6 +144,9 @@ export default async function EventDetailPage({
 }) {
   const { id } = await params
   const { payment: paymentStatus } = await searchParams
+  const cookieStore = await cookies()
+  const token = cookieStore.get('auth-token')?.value
+  const currentUser = await getCurrentUser(token)
   const event = await getPublicEvent(id)
   if (!event) notFound()
 
@@ -337,13 +342,28 @@ export default async function EventDetailPage({
                 </Link>
               </div>
             ) : (
-              <RegistrationForm
-                eventId={id}
-                categories={event.categories}
-                isPaid={event.isPaid}
-                amount={event.amount}
-                categoryAmounts={event.categoryAmounts}
-              />
+              currentUser ? (
+                <RegistrationForm
+                  eventId={id}
+                  categories={event.categories}
+                  isPaid={event.isPaid}
+                  amount={event.amount}
+                  categoryAmounts={event.categoryAmounts}
+                />
+              ) : (
+                <div className="sticky top-24 rounded-2xl border border-[hsl(var(--event-accent)/0.2)] bg-white/95 p-6 text-center text-slate-700 shadow-sm backdrop-blur">
+                  <h3 className="text-lg font-semibold text-slate-900">Sign in to register</h3>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Please sign in with your email to register for this event and view your registrations in the student dashboard.
+                  </p>
+                  <Link
+                    href={`/login?redirect=/${id}`}
+                    className="mt-4 inline-flex items-center justify-center rounded-full bg-[hsl(var(--event-accent))] px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+                  >
+                    Go to login
+                  </Link>
+                </div>
+              )
             )}
             </Suspense>
           </div>

@@ -59,8 +59,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    await adminAuth.setCustomUserClaims(uid, { role: null })
-    return NextResponse.json({ success: true, role: null })
+    await adminAuth.setCustomUserClaims(uid, { role: 'student' })
+    return NextResponse.json({ success: true, role: 'student' })
   } catch (error) {
     console.error('assign-role error:', error)
     return NextResponse.json({ error: 'Failed to assign role' }, { status: 500 })

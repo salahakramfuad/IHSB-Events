@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -16,7 +17,14 @@ export default function AdminLayoutClient({
   children,
   profile,
 }: AdminLayoutClientProps) {
+  const pathname = usePathname()
   const [isCollapsed, setIsCollapsed] = useState(false)
+
+  // For the root /admin route when there is no admin profile,
+  // render children without the admin shell (used for admin login screen).
+  if (!profile && pathname === '/admin') {
+    return <>{children}</>
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex">

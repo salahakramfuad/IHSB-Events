@@ -3,10 +3,23 @@ import Image from 'next/image'
 import { cookies } from 'next/headers'
 import { unstable_cache } from 'next/cache'
 import { getOptimizedImageUrl } from '@/lib/cloudinary'
-import { Calendar, Users, ArrowRight, MapPin, Clock, Banknote } from 'lucide-react'
+import {
+  Calendar,
+  Users,
+  ArrowRight,
+  MapPin,
+  Clock,
+  Banknote,
+} from 'lucide-react'
 import { adminDb } from '@/lib/firebase-admin'
 import { getCurrentAdminProfile } from '@/lib/get-admin'
-import { isEventUpcoming, getFirstEventDate, parseEventDates, formatEventDates } from '@/lib/dateUtils'
+import {
+  isEventUpcoming,
+  getFirstEventDate,
+  parseEventDates,
+  formatEventDates,
+} from '@/lib/dateUtils'
+import AdminLogin from './AdminLogin'
 
 function getGreeting(): string {
   const hour = new Date().getHours()
@@ -175,6 +188,15 @@ export default async function AdminDashboardPage() {
       tags: ['admin-dashboard', 'events'],
     })(),
   ])
+
+  const isAdmin =
+    !!profile && (profile.role === 'admin' || profile.role === 'superAdmin')
+
+  // When visiting /admin and not authenticated as an admin,
+  // show the dedicated admin login experience instead of the dashboard.
+  if (!isAdmin) {
+    return <AdminLogin />
+  }
   const displayName = profile?.displayName?.trim() || profile?.email?.split('@')[0] || ''
 
   const {

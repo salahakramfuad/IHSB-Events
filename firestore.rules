@@ -45,6 +45,11 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && (request.auth.token.role == 'admin' || request.auth.token.role == 'superAdmin');
     }
 
+    // Students - users can only read/write their own profile doc
+    match /students/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
